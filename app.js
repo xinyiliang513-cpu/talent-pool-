@@ -60,9 +60,17 @@ const chartLabelsPlugin = {
   afterDatasetsDraw(chart) {
     const { ctx, data } = chart;
     const dataset = data.datasets[0];
-    if (!dataset) return;
+    const options = chart.options.plugins?.chartLabels || {};
+    if (!dataset || options.display === false) return;
     const values = dataset.data.map((value) => Number(value) || 0);
     const total = values.reduce((sum, value) => sum + value, 0);
+    if (!total) return;
+
+    if (chart.config.type === "doughnut") {
+      drawDoughnutLabels(chart, values, total);
+      return;
+    }
+
     ctx.save();
     ctx.font = "700 12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
     ctx.textBaseline = "middle";
@@ -71,15 +79,7 @@ const chartLabelsPlugin = {
     chart.getDatasetMeta(0).data.forEach((element, index) => {
       const value = values[index];
       if (!value) return;
-      const label = chart.config.type === "doughnut"
-        ? `${value.toLocaleString()} (${percent(value, total)})`
-        : value.toLocaleString();
-      if (chart.config.type === "doughnut") {
-        const point = element.tooltipPosition();
-        ctx.textAlign = "center";
-        ctx.fillText(label, point.x, point.y);
-        return;
-      }
+      const label = formatMetricLabel(value, total);
       if (chart.config.type === "line") {
         const point = element.tooltipPosition();
         ctx.textAlign = "center";
@@ -94,6 +94,82 @@ const chartLabelsPlugin = {
     ctx.restore();
   },
 };
+
+function drawDoughnutLabels(chart, values, total) {
+  const { ctx, chartArea } = chart;
+  const meta = chart.getDatasetMeta(0);
+  const sides = { left: [], right: [] };
+
+  meta.data.forEach((arc, index) => {
+    const value = values[index];
+    if (!value) return;
+    const angle = (arc.startAngle + arc.endAngle) / 2;
+    const side = Math.cos(angle) >= 0 ? "right" : "left";
+    const anchorX = arc.x + Math.cos(angle) * arc.outerRadius;
+    const anchorY = arc.y + Math.sin(angle) * arc.outerRadius;
+    const elbowX = arc.x + Math.cos(angle) * (arc.outerRadius + 18);
+    const elbowY = arc.y + Math.sin(angle) * (arc.outerRadius + 18);
+    const textX = side === "right" ? chartArea.right + 22 : chartArea.left - 22;
+    sides[side].push({
+      anchorX,
+      anchorY,
+      elbowX,
+      elbowY,
+      textX,
+      textY: elbowY,
+      label: formatMetricLabel(value, total),
+    });
+  });
+
+  const bounds = {
+    top: chartArea.top + 10,
+    bottom: chartArea.bottom - 10,
+  };
+  adjustLabelSide(sides.left, bounds);
+  adjustLabelSide(sides.right, bounds);
+
+  ctx.save();
+  ctx.font = "700 12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#98a2b3";
+  ctx.fillStyle = "#17202f";
+
+  ["left", "right"].forEach((side) => {
+    sides[side].forEach((item) => {
+      const horizontalEndX = side === "right" ? item.textX - 6 : item.textX + 6;
+      ctx.beginPath();
+      ctx.moveTo(item.anchorX, item.anchorY);
+      ctx.lineTo(item.elbowX, item.elbowY);
+      ctx.lineTo(horizontalEndX, item.textY);
+      ctx.stroke();
+      ctx.textAlign = side === "right" ? "left" : "right";
+      ctx.fillText(item.label, item.textX, item.textY);
+    });
+  });
+  ctx.restore();
+}
+
+function adjustLabelSide(items, bounds) {
+  if (!items.length) return;
+  const gap = 18;
+  items.sort((a, b) => a.textY - b.textY);
+  items.forEach((item, index) => {
+    item.textY = Math.max(bounds.top, Math.min(bounds.bottom, item.textY));
+    if (index > 0) item.textY = Math.max(item.textY, items[index - 1].textY + gap);
+  });
+  for (let index = items.length - 2; index >= 0; index -= 1) {
+    items[index].textY = Math.min(items[index].textY, items[index + 1].textY - gap);
+  }
+  const overflowTop = bounds.top - items[0].textY;
+  if (overflowTop > 0) items.forEach((item) => { item.textY += overflowTop; });
+  const overflowBottom = items[items.length - 1].textY - bounds.bottom;
+  if (overflowBottom > 0) items.forEach((item) => { item.textY -= overflowBottom; });
+}
+
+function formatMetricLabel(value, total) {
+  return `${value.toLocaleString()} (${percent(value, total)})`;
+}
 
 const el = (id) => document.getElementById(id);
 
@@ -432,7 +508,8 @@ function renderDoughnut(canvasId, rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: 18 },
+      cutout: "58%",
+      layout: { padding: { top: 24, right: 120, bottom: 24, left: 120 } },
       plugins: {
         legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
         chartLabels: { display: true },
@@ -462,7 +539,7 @@ function renderLine(canvasId, rows) {
       layout: { padding: { top: 24, right: 14, bottom: 8, left: 14 } },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (context) => `${context.raw.toLocaleString()} 人` } },
+        tooltip: { callbacks: { label: (context) => formatMetricLabel(Number(context.raw) || 0, rows.reduce((sum, row) => sum + row.count, 0)) } },
         chartLabels: { display: true },
       },
       scales: {
@@ -483,10 +560,10 @@ function baseChartOptions(extra = {}) {
     responsive: true,
     maintainAspectRatio: false,
     indexAxis: extra.indexAxis || "x",
-    layout: { padding: extra.indexAxis === "y" ? { top: 8, right: 56, bottom: 8, left: 8 } : { top: 26, right: 8, bottom: 8, left: 8 } },
+    layout: { padding: extra.indexAxis === "y" ? { top: 10, right: 118, bottom: 8, left: 8 } : { top: 34, right: 18, bottom: 8, left: 8 } },
     plugins: {
       legend: { display: false },
-      tooltip: { callbacks: { label: (context) => `${context.raw.toLocaleString()} 人` } },
+      tooltip: { callbacks: { label: (context) => formatMetricLabel(Number(context.raw) || 0, context.dataset.data.reduce((sum, value) => sum + (Number(value) || 0), 0)) } },
       chartLabels: { display: true },
     },
     scales: {
@@ -589,16 +666,27 @@ function downloadMarkdownReport() {
   downloadText("talent-pool-analysis-report.md", buildMarkdownReport(), "text/markdown;charset=utf-8");
 }
 
-function copyReportForFeishu() {
-  const report = buildMarkdownReport();
-  navigator.clipboard.writeText(report).then(() => {
+async function copyReportForFeishu() {
+  const htmlReport = buildHtmlReport();
+  const textReport = buildMarkdownReport();
+  try {
+    if (window.ClipboardItem && navigator.clipboard.write) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([htmlReport], { type: "text/html" }),
+          "text/plain": new Blob([textReport], { type: "text/plain" }),
+        }),
+      ]);
+    } else {
+      await navigator.clipboard.writeText(textReport);
+    }
     el("copyReport").textContent = "已复制";
     setTimeout(() => {
       el("copyReport").textContent = "复制报告";
     }, 1400);
-  }).catch(() => {
+  } catch (error) {
     alert("复制失败，请确认浏览器允许剪贴板权限。");
-  });
+  }
 }
 
 function downloadHtmlReport() {
