@@ -111,6 +111,8 @@ function bindActions() {
   });
   el("copyTable").addEventListener("click", copyCurrentTable);
   el("downloadCsv").addEventListener("click", downloadCurrentCsv);
+  el("copyReport").addEventListener("click", copyReportForFeishu);
+  el("downloadHtmlReport").addEventListener("click", downloadHtmlReport);
   el("downloadReport").addEventListener("click", downloadMarkdownReport);
   document.querySelectorAll("[data-download-chart]").forEach((button) => {
     button.addEventListener("click", () => downloadChart(button.dataset.downloadChart));
@@ -137,6 +139,8 @@ async function loadFile(file) {
   el("emptyState").classList.add("hidden");
   el("dashboard").classList.remove("hidden");
   el("downloadReport").disabled = false;
+  el("copyReport").disabled = false;
+  el("downloadHtmlReport").disabled = false;
   renderDashboard();
 }
 
@@ -524,6 +528,26 @@ function currentSummaryCsv() {
 }
 
 function downloadMarkdownReport() {
+  downloadText("talent-pool-analysis-report.md", buildMarkdownReport(), "text/markdown;charset=utf-8");
+}
+
+function copyReportForFeishu() {
+  const report = buildMarkdownReport();
+  navigator.clipboard.writeText(report).then(() => {
+    el("copyReport").textContent = "已复制";
+    setTimeout(() => {
+      el("copyReport").textContent = "复制报告";
+    }, 1400);
+  }).catch(() => {
+    alert("复制失败，请确认浏览器允许剪贴板权限。");
+  });
+}
+
+function downloadHtmlReport() {
+  downloadText("talent-pool-analysis-report.html", buildHtmlReport(), "text/html;charset=utf-8");
+}
+
+function buildMarkdownReport() {
   const people = getFilteredPeople();
   const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
   const summaries = buildSummaries(people, projectRows);
@@ -548,12 +572,78 @@ function downloadMarkdownReport() {
     "## 英语水平",
     markdownTable(enrichSummary(countBy(people, (person) => person.english || "未填写"), people.length)),
   ];
-  downloadText("talent-pool-analysis-report.md", lines.join("\n"), "text/markdown;charset=utf-8");
+  return lines.join("\n");
+}
+
+function buildHtmlReport() {
+  const people = getFilteredPeople();
+  const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
+  const summaries = buildSummaries(people, projectRows);
+  const experienced = people.filter((person) => person.projects.length > 0).length;
+  const cards = [
+    ["当前筛选人数", people.length.toLocaleString()],
+    ["有项目经验人数", experienced.toLocaleString()],
+    ["国家/地区覆盖", countBy(people, (person) => person.country || "未填写").length.toLocaleString()],
+    ["高英语能力", people.filter((person) => isHighEnglish(person.english)).length.toLocaleString()],
+  ];
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Talent Pool 人力画像分析报告</title>
+  <style>
+    body { margin: 0; color: #17202f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f5f7fb; line-height: 1.55; }
+    main { max-width: 1040px; margin: 0 auto; padding: 36px 24px 52px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    h2 { margin: 30px 0 12px; font-size: 20px; }
+    .meta { color: #667085; margin-bottom: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 22px 0; }
+    .card { background: #fff; border: 1px solid #d9e0ea; border-radius: 8px; padding: 16px; }
+    .card span { display: block; color: #667085; font-size: 12px; font-weight: 700; }
+    .card strong { display: block; font-size: 28px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d9e0ea; }
+    th, td { border-bottom: 1px solid #e8edf4; padding: 10px 12px; text-align: left; font-size: 14px; }
+    th { background: #f0f5fb; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Talent Pool 人力画像分析报告</h1>
+    <div class="meta">来源文件：${escapeHtml(state.sourceName)} · 统计口径：按 Contact Email 去重统计人数</div>
+    <section class="grid">${cards.map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</section>
+    <h2>国家/地区 Top 10</h2>
+    ${htmlTable(summaries.countries.slice(0, 10))}
+    <h2>项目类型 Top 10</h2>
+    ${htmlTable(summaries.projectTypes.slice(0, 10))}
+    <h2>专业/领域 Top 10</h2>
+    ${htmlTable(summaries.majors.slice(0, 10))}
+    <h2>英语水平</h2>
+    ${htmlTable(enrichSummary(countBy(people, (person) => person.english || "未填写"), people.length))}
+  </main>
+</body>
+</html>`;
 }
 
 function markdownTable(rows) {
   const tableRows = rows.map((row) => `| ${row.name} | ${row.count} | ${row.share} |`);
   return ["| 分类 | 人数 | 占比 |", "| --- | ---: | ---: |", ...tableRows].join("\n");
+}
+
+function htmlTable(rows) {
+  return `<table><thead><tr><th>分类</th><th>人数</th><th>占比</th></tr></thead><tbody>${rows.map((row) =>
+    `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.count)}</td><td>${escapeHtml(row.share)}</td></tr>`,
+  ).join("")}</tbody></table>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function downloadChart(canvasId) {
