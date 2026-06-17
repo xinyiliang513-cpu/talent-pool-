@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Talent Pool 人力画像分析</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Talent Pool Analytics</p>
+        <h1>人力画像自动化分析</h1>
+      </div>
+      <div class="actions">
+        <label class="upload-button" for="fileInput">上传 Excel</label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+        <button id="downloadReport" type="button" disabled>下载报告</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="upload-panel" id="emptyState">
+        <div class="drop-zone" id="dropZone">
+          <strong>拖入或上传 survey pool Excel</strong>
+          <span>统计人数按 Contact Email 去重；表头保持不变即可反复使用。</span>
+        </div>
+      </section>
+
+      <section class="dashboard hidden" id="dashboard">
+        <aside class="filters">
+          <div class="filter-head">
+            <h2>筛选</h2>
+            <button id="resetFilters" type="button">重置</button>
+          </div>
+          <label>
+            国家/地区
+            <select id="countryFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label>
+            英语水平
+            <select id="englishFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label>
+            学历
+            <select id="degreeFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label>
+            PM
+            <select id="pmFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label>
+            搜索姓名/邮箱/专业
+            <input id="searchInput" type="search" placeholder="输入关键词" />
+          </label>
+          <div class="source-note" id="sourceNote"></div>
+        </aside>
+
+        <section class="content">
+          <div class="kpi-grid" id="kpiGrid"></div>
+
+          <section class="chart-grid">
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>工作时长分布</h2>
+                <button data-download-chart="hoursChart" type="button">PNG</button>
+              </div>
+              <canvas id="hoursChart"></canvas>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>项目数量</h2>
+                <button data-download-chart="projectsChart" type="button">PNG</button>
+              </div>
+              <canvas id="projectsChart"></canvas>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>英语水平</h2>
+                <button data-download-chart="englishChart" type="button">PNG</button>
+              </div>
+              <canvas id="englishChart"></canvas>
+            </article>
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>提交时间趋势</h2>
+                <button data-download-chart="timelineChart" type="button">PNG</button>
+              </div>
+              <canvas id="timelineChart"></canvas>
+            </article>
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>项目类型 Top 12</h2>
+                <button data-download-chart="projectTypeChart" type="button">PNG</button>
+              </div>
+              <canvas id="projectTypeChart"></canvas>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>学历结构</h2>
+                <button data-download-chart="degreeChart" type="button">PNG</button>
+              </div>
+              <canvas id="degreeChart"></canvas>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>国家/地区 Top 10</h2>
+                <button data-download-chart="countryChart" type="button">PNG</button>
+              </div>
+              <canvas id="countryChart"></canvas>
+            </article>
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>专业/领域 Top 15</h2>
+                <button data-download-chart="majorChart" type="button">PNG</button>
+              </div>
+              <canvas id="majorChart"></canvas>
+            </article>
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>语种-国家 Top 15</h2>
+                <button data-download-chart="languageChart" type="button">PNG</button>
+              </div>
+              <canvas id="languageChart"></canvas>
+            </article>
+          </section>
+
+          <section class="table-panel">
+            <div class="panel-head">
+              <h2>可复制汇总表</h2>
+              <div class="inline-actions">
+                <select id="summarySelect">
+                  <option value="countries">国家/地区</option>
+                  <option value="projectTypes">项目类型</option>
+                  <option value="domains">领域</option>
+                  <option value="majors">专业</option>
+                  <option value="languages">语种-国家</option>
+                  <option value="details">人才明细</option>
+                </select>
+                <button id="copyTable" type="button">复制</button>
+                <button id="downloadCsv" type="button">CSV</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="summaryTable"></table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <template id="kpiTemplate">
+      <article class="kpi">
+        <span></span>
+        <strong></strong>
+        <small></small>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
