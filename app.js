@@ -55,9 +55,56 @@ const palette = [
   "#ca8a04",
 ];
 
+const chartLabelsPlugin = {
+  id: "chartLabels",
+  afterDatasetsDraw(chart) {
+    const { ctx, data } = chart;
+    const dataset = data.datasets[0];
+    if (!dataset) return;
+    const values = dataset.data.map((value) => Number(value) || 0);
+    const total = values.reduce((sum, value) => sum + value, 0);
+    ctx.save();
+    ctx.font = "700 12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#17202f";
+
+    chart.getDatasetMeta(0).data.forEach((element, index) => {
+      const value = values[index];
+      if (!value) return;
+      const label = chart.config.type === "doughnut"
+        ? `${value.toLocaleString()} (${percent(value, total)})`
+        : value.toLocaleString();
+      if (chart.config.type === "doughnut") {
+        const point = element.tooltipPosition();
+        ctx.textAlign = "center";
+        ctx.fillText(label, point.x, point.y);
+        return;
+      }
+      if (chart.config.type === "line") {
+        const point = element.tooltipPosition();
+        ctx.textAlign = "center";
+        ctx.fillText(label, point.x, point.y - 12);
+        return;
+      }
+      const horizontal = chart.options.indexAxis === "y";
+      const point = element.tooltipPosition();
+      ctx.textAlign = horizontal ? "left" : "center";
+      ctx.fillText(label, horizontal ? point.x + 10 : point.x, horizontal ? point.y : point.y - 12);
+    });
+    ctx.restore();
+  },
+};
+
 const el = (id) => document.getElementById(id);
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (window.Chart) {
+    try {
+      Chart.register(chartLabelsPlugin);
+    } catch (error) {
+      // Chart.js ignores duplicate plugin ids in most builds; this keeps older builds from blocking the page.
+    }
+  }
   bindFileInput();
   bindFilters();
   bindActions();
@@ -138,10 +185,14 @@ async function loadFile(file) {
   populateFilterOptions();
   el("emptyState").classList.add("hidden");
   el("dashboard").classList.remove("hidden");
-  el("downloadReport").disabled = false;
-  el("copyReport").disabled = false;
-  el("downloadHtmlReport").disabled = false;
   renderDashboard();
+}
+
+function syncReportActions() {
+  const hasReport = state.people.length > 0;
+  ["copyReport", "downloadHtmlReport", "downloadReport"].forEach((id) => {
+    el(id).disabled = !hasReport;
+  });
 }
 
 function normalizeMatrix(matrix) {
@@ -266,6 +317,7 @@ function renderDashboard() {
   const allPeople = state.people;
   const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
 
+  syncReportActions();
   state.summaries = buildSummaries(people, projectRows);
   renderKpis(people, allPeople, projectRows);
   renderCharts(people, projectRows);
@@ -380,8 +432,10 @@ function renderDoughnut(canvasId, rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: 18 },
       plugins: {
         legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+        chartLabels: { display: true },
       },
     },
   });
@@ -405,9 +459,11 @@ function renderLine(canvasId, rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: 24, right: 14, bottom: 8, left: 14 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (context) => `${context.raw.toLocaleString()} 人` } },
+        chartLabels: { display: true },
       },
       scales: {
         x: { grid: { display: false } },
@@ -427,9 +483,11 @@ function baseChartOptions(extra = {}) {
     responsive: true,
     maintainAspectRatio: false,
     indexAxis: extra.indexAxis || "x",
+    layout: { padding: extra.indexAxis === "y" ? { top: 8, right: 56, bottom: 8, left: 8 } : { top: 26, right: 8, bottom: 8, left: 8 } },
     plugins: {
       legend: { display: false },
       tooltip: { callbacks: { label: (context) => `${context.raw.toLocaleString()} 人` } },
+      chartLabels: { display: true },
     },
     scales: {
       x: { beginAtZero: true, ticks: { precision: 0 } },
@@ -550,7 +608,7 @@ function downloadHtmlReport() {
 function buildMarkdownReport() {
   const people = getFilteredPeople();
   const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
-  const summaries = buildSummaries(people, projectRows);
+  const sections = buildReportSections(people, projectRows);
   const lines = [
     "# Talent Pool 人力画像分析报告",
     "",
@@ -560,17 +618,11 @@ function buildMarkdownReport() {
     `- 有项目经验人数：${people.filter((person) => person.projects.length > 0).length.toLocaleString()}`,
     `- 国家/地区覆盖：${countBy(people, (person) => person.country || "未填写").length.toLocaleString()}`,
     "",
-    "## 国家/地区 Top 10",
-    markdownTable(summaries.countries.slice(0, 10)),
-    "",
-    "## 项目类型 Top 10",
-    markdownTable(summaries.projectTypes.slice(0, 10)),
-    "",
-    "## 专业/领域 Top 10",
-    markdownTable(summaries.majors.slice(0, 10)),
-    "",
-    "## 英语水平",
-    markdownTable(enrichSummary(countBy(people, (person) => person.english || "未填写"), people.length)),
+    ...sections.flatMap((section) => [
+      `## ${section.title}`,
+      markdownTable(section.rows),
+      "",
+    ]),
   ];
   return lines.join("\n");
 }
@@ -578,8 +630,8 @@ function buildMarkdownReport() {
 function buildHtmlReport() {
   const people = getFilteredPeople();
   const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
-  const summaries = buildSummaries(people, projectRows);
   const experienced = people.filter((person) => person.projects.length > 0).length;
+  const sections = buildReportSections(people, projectRows);
   const cards = [
     ["当前筛选人数", people.length.toLocaleString()],
     ["有项目经验人数", experienced.toLocaleString()],
@@ -602,6 +654,8 @@ function buildHtmlReport() {
     .card { background: #fff; border: 1px solid #d9e0ea; border-radius: 8px; padding: 16px; }
     .card span { display: block; color: #667085; font-size: 12px; font-weight: 700; }
     .card strong { display: block; font-size: 28px; margin-top: 4px; }
+    .chart-block { background: #fff; border: 1px solid #d9e0ea; border-radius: 8px; padding: 16px; margin: 18px 0 24px; page-break-inside: avoid; }
+    .chart-block img { display: block; width: 100%; max-height: 430px; object-fit: contain; border: 1px solid #eef2f7; border-radius: 6px; margin: 8px 0 14px; }
     table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d9e0ea; }
     th, td { border-bottom: 1px solid #e8edf4; padding: 10px 12px; text-align: left; font-size: 14px; }
     th { background: #f0f5fb; }
@@ -613,17 +667,71 @@ function buildHtmlReport() {
     <h1>Talent Pool 人力画像分析报告</h1>
     <div class="meta">来源文件：${escapeHtml(state.sourceName)} · 统计口径：按 Contact Email 去重统计人数</div>
     <section class="grid">${cards.map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</section>
-    <h2>国家/地区 Top 10</h2>
-    ${htmlTable(summaries.countries.slice(0, 10))}
-    <h2>项目类型 Top 10</h2>
-    ${htmlTable(summaries.projectTypes.slice(0, 10))}
-    <h2>专业/领域 Top 10</h2>
-    ${htmlTable(summaries.majors.slice(0, 10))}
-    <h2>英语水平</h2>
-    ${htmlTable(enrichSummary(countBy(people, (person) => person.english || "未填写"), people.length))}
+    ${sections.map((section) => `<section class="chart-block">
+      <h2>${escapeHtml(section.title)}</h2>
+      ${chartImageHtml(section.chartId)}
+      ${htmlTable(section.rows)}
+    </section>`).join("")}
   </main>
 </body>
 </html>`;
+}
+
+function buildReportSections(people, projectRows) {
+  const total = people.length;
+  return [
+    {
+      title: "工作时长分布",
+      chartId: "hoursChart",
+      rows: enrichSummary(bucketCounts(people, (person) => person.hours, hourBucketFromText), total),
+    },
+    {
+      title: "项目数量",
+      chartId: "projectsChart",
+      rows: enrichSummary(projectCountBuckets(people), total),
+    },
+    {
+      title: "英语水平",
+      chartId: "englishChart",
+      rows: enrichSummary(topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8), total),
+    },
+    {
+      title: "提交时间趋势",
+      chartId: "timelineChart",
+      rows: enrichSummary(timelineCounts(people), total),
+    },
+    {
+      title: "项目类型 Top 12",
+      chartId: "projectTypeChart",
+      rows: enrichSummary(topCounts(countProjectValues(projectRows, "Project Types"), 12), total),
+    },
+    {
+      title: "学历结构",
+      chartId: "degreeChart",
+      rows: enrichSummary(topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8), total),
+    },
+    {
+      title: "国家/地区 Top 10",
+      chartId: "countryChart",
+      rows: enrichSummary(topCounts(countBy(people, (person) => person.country || "未填写"), 10), total),
+    },
+    {
+      title: "专业/领域 Top 15",
+      chartId: "majorChart",
+      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.major || person.domain), 15), total),
+    },
+    {
+      title: "语种-国家 Top 15",
+      chartId: "languageChart",
+      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.languageCountry), 15), total),
+    },
+  ];
+}
+
+function chartImageHtml(chartId) {
+  const chart = state.charts[chartId];
+  if (!chart) return "";
+  return `<img src="${chart.toBase64Image("image/png", 1)}" alt="${escapeHtml(chartId)} 图表" />`;
 }
 
 function markdownTable(rows) {
