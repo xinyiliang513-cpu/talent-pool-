@@ -1,10 +1,22 @@
 const state = {
   sourceName: "",
+  headers: [],
   rows: [],
   people: [],
   charts: {},
   summaries: {},
   currentSummary: "countries",
+  chartTypes: {
+    hoursChart: "bar",
+    projectsChart: "doughnut",
+    englishChart: "doughnut",
+    timelineChart: "line",
+    experienceChart: "bar",
+    businessLineChart: "barY",
+    degreeChart: "doughnut",
+    countryChart: "barY",
+    majorChart: "barY",
+  },
 };
 
 const columnAliases = {
@@ -18,6 +30,7 @@ const columnAliases = {
   domain: ["domain", "领域"],
   english: ["english level", "英语"],
   hours: ["average daily working hours", "working hours", "工作时长"],
+  yearsExperience: ["years of work experience", "work experience", "years experience", "工作经验", "工作年限", "经验年限"],
   projectCount: ["number of projects", "project number", "项目数量"],
   languageCountry: ["语种-国家", "language-country", "language country"],
   nativeLanguage: ["native language", "native language(s)", "母语"],
@@ -66,7 +79,7 @@ const chartLabelsPlugin = {
     const total = values.reduce((sum, value) => sum + value, 0);
     if (!total) return;
 
-    if (chart.config.type === "doughnut") {
+    if (chart.config.type === "doughnut" || chart.config.type === "pie") {
       drawDoughnutLabels(chart, values, total);
       return;
     }
@@ -240,6 +253,14 @@ function bindActions() {
   document.querySelectorAll("[data-download-chart]").forEach((button) => {
     button.addEventListener("click", () => downloadChart(button.dataset.downloadChart));
   });
+  document.querySelectorAll("[data-chart-type]").forEach((select) => {
+    const chartId = select.dataset.chartType;
+    if (state.chartTypes[chartId]) select.value = state.chartTypes[chartId];
+    select.addEventListener("change", () => {
+      state.chartTypes[chartId] = select.value;
+      renderDashboard();
+    });
+  });
 }
 
 async function loadFile(file) {
@@ -257,6 +278,7 @@ async function loadFile(file) {
   const { headers, rows } = normalizeMatrix(matrix);
 
   state.rows = rows;
+  state.headers = headers;
   state.people = dedupePeople(rows, headers);
   populateFilterOptions();
   el("emptyState").classList.add("hidden");
@@ -330,11 +352,13 @@ function buildPerson(row, headers, key) {
     domain: get("domain"),
     english: get("english"),
     hours: get("hours"),
+    yearsExperience: get("yearsExperience"),
     projectCount: get("projectCount"),
     languageCountry: get("languageCountry"),
     nativeLanguage: get("nativeLanguage"),
     foreignLanguage: get("foreignLanguage"),
     completedAt: get("completedAt"),
+    sourceRows: [row],
     projects: [],
   };
   mergeProjectExperience(person, row, headers);
@@ -342,6 +366,7 @@ function buildPerson(row, headers, key) {
 }
 
 function mergeProjectExperience(person, row, headers) {
+  if (!person.sourceRows.includes(row)) person.sourceRows.push(row);
   for (let group = 0; group < 3; group += 1) {
     const suffix = group === 0 ? "" : `.${group}`;
     const project = {};
@@ -398,6 +423,7 @@ function renderDashboard() {
   renderKpis(people, allPeople, projectRows);
   renderCharts(people, projectRows);
   renderSummaryTable();
+  renderRawMatches(people);
   el("sourceNote").textContent = `${state.sourceName} · 原始行 ${state.rows.length.toLocaleString()} · 当前筛选 ${people.length.toLocaleString()} 人`;
 }
 
@@ -419,6 +445,7 @@ function getFilteredPeople() {
         person.email,
         person.major,
         person.domain,
+        person.yearsExperience,
         person.country,
         person.languageCountry,
       ].join(" ").toLowerCase();
@@ -455,24 +482,34 @@ function renderKpis(people, allPeople, projectRows) {
 }
 
 function renderCharts(people, projectRows) {
-  renderBar("hoursChart", "人数", bucketCounts(people, (person) => person.hours, hourBucketFromText), {
-    indexAxis: "x",
+  renderFlexibleChart("hoursChart", "人数", bucketCounts(people, (person) => person.hours, hourBucketFromText), {
+    compactBars: true,
   });
-  renderDoughnut("projectsChart", projectCountBuckets(people));
-  renderDoughnut("englishChart", topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8));
-  renderLine("timelineChart", timelineCounts(people));
-  renderBar("projectTypeChart", "人数", topCounts(countProjectValues(projectRows, "Project Types"), 12), {
-    indexAxis: "y",
+  renderFlexibleChart("projectsChart", "人数", projectCountBuckets(people));
+  renderFlexibleChart("englishChart", "人数", topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8));
+  renderFlexibleChart("timelineChart", "提交人数", timelineCounts(people));
+  renderFlexibleChart("experienceChart", "人数", bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), {
+    compactBars: true,
   });
-  renderDoughnut("degreeChart", topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8));
-  renderBar("countryChart", "人数", topCounts(countBy(people, (person) => person.country || "未填写"), 10), {
-    indexAxis: "y",
-  });
-  renderBar("majorChart", "人数", topCounts(countTokenValues(people, (person) => person.major || person.domain), 15), {
-    indexAxis: "y",
-  });
-  renderBar("languageChart", "人数", topCounts(countTokenValues(people, (person) => person.languageCountry), 15), {
-    indexAxis: "y",
+  renderFlexibleChart("businessLineChart", "人数", topCounts(countProjectValues(projectRows, "Business Line"), 12));
+  renderFlexibleChart("degreeChart", "人数", topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8));
+  renderFlexibleChart("countryChart", "人数", topCounts(countBy(people, (person) => person.country || "未填写"), 15));
+  renderFlexibleChart("majorChart", "人数", topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }));
+}
+
+function renderFlexibleChart(canvasId, label, rows, chartOptions = {}) {
+  const type = state.chartTypes[canvasId] || "bar";
+  if (type === "doughnut" || type === "pie") {
+    renderDoughnut(canvasId, rows, type);
+    return;
+  }
+  if (type === "line") {
+    renderLine(canvasId, rows, label);
+    return;
+  }
+  renderBar(canvasId, label, rows, {
+    ...chartOptions,
+    indexAxis: type === "barY" ? "y" : "x",
   });
 }
 
@@ -488,15 +525,17 @@ function renderBar(canvasId, label, rows, chartOptions = {}) {
         data: values,
         backgroundColor: palette,
         borderRadius: 4,
+        barPercentage: chartOptions.compactBars ? 0.42 : 0.74,
+        categoryPercentage: chartOptions.compactBars ? 0.62 : 0.82,
       }],
     },
     options: baseChartOptions(chartOptions),
   });
 }
 
-function renderDoughnut(canvasId, rows) {
+function renderDoughnut(canvasId, rows, type = "doughnut") {
   renderChart(canvasId, {
-    type: "doughnut",
+    type,
     data: {
       labels: rows.map((row) => row.name),
       datasets: [{
@@ -508,7 +547,7 @@ function renderDoughnut(canvasId, rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "58%",
+      cutout: type === "doughnut" ? "58%" : 0,
       layout: { padding: { top: 24, right: 120, bottom: 24, left: 120 } },
       plugins: {
         legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
@@ -518,13 +557,13 @@ function renderDoughnut(canvasId, rows) {
   });
 }
 
-function renderLine(canvasId, rows) {
+function renderLine(canvasId, rows, label = "人数") {
   renderChart(canvasId, {
     type: "line",
     data: {
       labels: rows.map((row) => row.name),
       datasets: [{
-        label: "提交人数",
+        label,
         data: rows.map((row) => row.count),
         borderColor: "#1769aa",
         backgroundColor: "rgba(23, 105, 170, 0.14)",
@@ -575,10 +614,10 @@ function baseChartOptions(extra = {}) {
 
 function buildSummaries(people, projectRows) {
   const countries = enrichSummary(countBy(people, (person) => person.country || "未填写"), people.length);
-  const projectTypes = enrichSummary(countProjectValues(projectRows, "Project Types"), people.length);
+  const businessLines = enrichSummary(countProjectValues(projectRows, "Business Line"), people.length);
   const domains = enrichSummary(countTokenValues(people, (person) => person.domain), people.length);
   const majors = enrichSummary(countTokenValues(people, (person) => person.major || person.domain), people.length);
-  const languages = enrichSummary(countTokenValues(people, (person) => person.languageCountry), people.length);
+  const experience = enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), people.length);
   const details = people.map((person) => ({
     name: person.name || "未填写",
     email: person.email || "未填写",
@@ -587,10 +626,11 @@ function buildSummaries(people, projectRows) {
     degree: normalizeDegree(person.degree) || "未填写",
     major: person.major || "未填写",
     hours: person.hours || "未填写",
+    yearsExperience: person.yearsExperience || "未填写",
     projectCount: person.projects.length || parseProjectCount(person.projectCount) || 0,
     pm: person.pm || "未填写",
   }));
-  return { countries, projectTypes, domains, majors, languages, details };
+  return { countries, businessLines, domains, majors, experience, details };
 }
 
 function renderSummaryTable() {
@@ -598,7 +638,7 @@ function renderSummaryTable() {
   const rows = state.summaries[state.currentSummary] || [];
   const isDetails = state.currentSummary === "details";
   const headers = isDetails
-    ? ["姓名", "邮箱", "国家/地区", "英语水平", "学历", "专业", "工作时长", "项目数", "PM"]
+    ? ["姓名", "邮箱", "国家/地区", "英语水平", "学历", "专业", "工作时长", "工作经验年限", "项目数", "PM"]
     : ["分类", "人数", "占比"];
 
   table.innerHTML = "";
@@ -616,7 +656,7 @@ function renderSummaryTable() {
   rows.slice(0, isDetails ? 500 : 80).forEach((row) => {
     const tr = document.createElement("tr");
     const values = isDetails
-      ? [row.name, row.email, row.country, row.english, row.degree, row.major, row.hours, row.projectCount, row.pm]
+      ? [row.name, row.email, row.country, row.english, row.degree, row.major, row.hours, row.yearsExperience, row.projectCount, row.pm]
       : [row.name, row.count, row.share];
     values.forEach((value) => {
       const td = document.createElement("td");
@@ -641,10 +681,10 @@ function copyCurrentTable() {
 function downloadCurrentCsv() {
   const names = {
     countries: "country-summary",
-    projectTypes: "project-type-summary",
+    businessLines: "business-line-summary",
     domains: "domain-summary",
     majors: "major-summary",
-    languages: "language-summary",
+    experience: "work-experience-summary",
     details: "talent-details",
   };
   downloadText(`${names[state.currentSummary] || "summary"}.csv`, currentSummaryCsv(), "text/csv;charset=utf-8");
@@ -654,10 +694,10 @@ function currentSummaryCsv() {
   const rows = state.summaries[state.currentSummary] || [];
   const isDetails = state.currentSummary === "details";
   const headers = isDetails
-    ? ["Name", "Email", "Country", "English Level", "Degree", "Major", "Working Hours", "Project Count", "PM"]
+    ? ["Name", "Email", "Country", "English Level", "Degree", "Major", "Working Hours", "Years of Work Experience", "Project Count", "PM"]
     : ["Category", "People", "Share"];
   const lines = [headers, ...rows.map((row) => isDetails
-    ? [row.name, row.email, row.country, row.english, row.degree, row.major, row.hours, row.projectCount, row.pm]
+    ? [row.name, row.email, row.country, row.english, row.degree, row.major, row.hours, row.yearsExperience, row.projectCount, row.pm]
     : [row.name, row.count, row.share])];
   return lines.map((line) => line.map(csvEscape).join(",")).join("\n");
 }
@@ -784,14 +824,19 @@ function buildReportSections(people, projectRows) {
       rows: enrichSummary(topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8), total),
     },
     {
-      title: "提交时间趋势",
+      title: "提交时间趋势（月度）",
       chartId: "timelineChart",
       rows: enrichSummary(timelineCounts(people), total),
     },
     {
-      title: "项目类型 Top 12",
-      chartId: "projectTypeChart",
-      rows: enrichSummary(topCounts(countProjectValues(projectRows, "Project Types"), 12), total),
+      title: "工作经验年限",
+      chartId: "experienceChart",
+      rows: enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), total),
+    },
+    {
+      title: "Business Line Top 12",
+      chartId: "businessLineChart",
+      rows: enrichSummary(topCounts(countProjectValues(projectRows, "Business Line"), 12), total),
     },
     {
       title: "学历结构",
@@ -799,19 +844,14 @@ function buildReportSections(people, projectRows) {
       rows: enrichSummary(topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8), total),
     },
     {
-      title: "国家/地区 Top 10",
+      title: "国家/地区 Top 15",
       chartId: "countryChart",
-      rows: enrichSummary(topCounts(countBy(people, (person) => person.country || "未填写"), 10), total),
+      rows: enrichSummary(topCounts(countBy(people, (person) => person.country || "未填写"), 15), total),
     },
     {
-      title: "专业/领域 Top 15",
+      title: "专业/领域 Top 20",
       chartId: "majorChart",
-      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.major || person.domain), 15), total),
-    },
-    {
-      title: "语种-国家 Top 15",
-      chartId: "languageChart",
-      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.languageCountry), 15), total),
+      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }), total),
     },
   ];
 }
@@ -896,11 +936,10 @@ function countProjectValues(projectRows, field) {
   return Array.from(peopleByValue, ([name, count]) => ({ name, count })).sort(sortCountThenName);
 }
 
-function bucketCounts(items, getValue, getBucket) {
-  const order = ["未填写", "0-4h", "4-8h", "8h+"];
+function bucketCounts(items, getValue, getBucket, order = ["未填写", "0-4h", "4-8h", "8h+"]) {
   const counts = new Map(order.map((name) => [name, 0]));
   items.forEach((item) => {
-      const bucket = getBucket(getValue(item));
+    const bucket = getBucket(getValue(item));
     counts.set(bucket, (counts.get(bucket) || 0) + 1);
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).filter((row) => row.count > 0);
@@ -925,13 +964,27 @@ function projectCountBuckets(people) {
 
 function timelineCounts(people) {
   const counts = new Map();
+  const monthDates = [];
   people.forEach((person) => {
     const date = parseDate(person.completedAt);
-    const key = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "未填写";
+    const key = date ? monthKey(date) : "未填写";
+    if (date) monthDates.push(new Date(date.getFullYear(), date.getMonth(), 1));
     counts.set(key, (counts.get(key) || 0) + 1);
   });
+  if (monthDates.length) {
+    const start = new Date(Math.min(...monthDates.map((date) => date.getTime())));
+    const end = new Date(Math.max(...monthDates.map((date) => date.getTime())));
+    for (const cursor = new Date(start); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
+      const key = monthKey(cursor);
+      if (!counts.has(key)) counts.set(key, 0);
+    }
+  }
   return Array.from(counts, ([name, count]) => ({ name, count }))
     .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function enrichSummary(rows, total) {
@@ -941,10 +994,11 @@ function enrichSummary(rows, total) {
   }));
 }
 
-function topCounts(rows, limit) {
+function topCounts(rows, limit, options = {}) {
+  const includeOther = options.includeOther !== false;
   const top = rows.slice(0, limit);
   const rest = rows.slice(limit).reduce((sum, row) => sum + row.count, 0);
-  if (rest > 0) top.push({ name: "其他", count: rest });
+  if (includeOther && rest > 0) top.push({ name: "其他", count: rest });
   return top;
 }
 
@@ -981,13 +1035,17 @@ function normalizeDegree(value) {
   const text = clean(value);
   const lower = text.toLowerCase();
   if (!text) return "";
+  if (text.includes("未填写")) return "未填写";
   if (lower.includes("phd") || lower.includes("doctor") || text.includes("博士")) return "博士";
   if (lower.includes("master") || text.includes("硕士") || text.includes("研究生")) return "硕士";
   if (lower.includes("bachelor") || text.includes("本科") || text.includes("学士")) return "本科";
   if (lower.includes("associate") || text.includes("大专") || text.includes("专科")) return "大专";
-  if (lower.includes("high school") || text.includes("高中")) return "高中及以下";
-  if (text.includes("高学历")) return "硕士/博士";
-  return text.length > 42 ? `${text.slice(0, 42)}...` : text;
+  if (lower.includes("college")) return "大专/本科";
+  if (lower.includes("high school") || text.includes("高中") || text.includes("中专")) return "高中及以下";
+  if (lower.includes("high education") || text.includes("高学历")) return "高学历";
+  if (lower.includes("undergraduate")) return "本科";
+  if (lower.includes("postgraduate")) return "硕士及以上";
+  return toChineseDegreeLabel(text);
 }
 
 function hourBucketFromText(value) {
@@ -1002,6 +1060,54 @@ function hourBucketFromText(value) {
   if (hours < 4) return "0-4h";
   if (hours <= 8) return "4-8h";
   return "8h+";
+}
+
+function experienceBucketOrder() {
+  return ["未填写", "0-1年", "1-3年", "3-5年", "5-10年", "10年以上"];
+}
+
+function experienceBucketFromText(value) {
+  const text = clean(value).toLowerCase();
+  if (!text) return "未填写";
+  if (/no experience|none|无/.test(text)) return "0-1年";
+  const range = text.match(/(\d+(?:\.\d+)?)\s*[-~至到]\s*(\d+(?:\.\d+)?)/);
+  if (range) return experienceBucketFromNumber((Number(range[1]) + Number(range[2])) / 2);
+  const plus = text.match(/(\d+(?:\.\d+)?)\s*(?:\+|plus|以上|more)/);
+  if (plus) return experienceBucketFromNumber(Number(plus[1]) + 0.1);
+  const match = text.match(/\d+(\.\d+)?/);
+  if (!match) return "未填写";
+  return experienceBucketFromNumber(Number(match[0]));
+}
+
+function experienceBucketFromNumber(years) {
+  if (!Number.isFinite(years)) return "未填写";
+  if (years < 1) return "0-1年";
+  if (years < 3) return "1-3年";
+  if (years < 5) return "3-5年";
+  if (years < 10) return "5-10年";
+  return "10年以上";
+}
+
+function toChineseDegreeLabel(text) {
+  const lower = text.toLowerCase();
+  const replacements = [
+    [/native speaker/g, "母语者"],
+    [/advanced/g, "高级"],
+    [/proficient/g, "熟练"],
+    [/upper intermediate/g, "中高级"],
+    [/intermediate/g, "中级"],
+    [/elementary/g, "初级"],
+    [/beginner/g, "入门"],
+    [/degree/g, "学历"],
+    [/education/g, "教育背景"],
+  ];
+  let result = lower;
+  replacements.forEach(([pattern, replacement]) => {
+    result = result.replace(pattern, replacement);
+  });
+  result = result.replace(/\b[a-z]+\b/g, "").replace(/\s+/g, " ").trim();
+  const finalText = result || text;
+  return finalText.length > 42 ? `${finalText.slice(0, 42)}...` : finalText;
 }
 
 function parseProjectCount(value) {
@@ -1047,4 +1153,46 @@ function clean(value) {
 function csvEscape(value) {
   const text = String(value ?? "");
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+function renderRawMatches(people) {
+  const keyword = el("searchInput").value.trim().toLowerCase();
+  const panel = el("rawMatchPanel");
+  const table = el("rawMatchTable");
+  if (!keyword || !state.headers.length) {
+    panel.classList.add("hidden");
+    table.innerHTML = "";
+    return;
+  }
+
+  const matchedRows = [];
+  people.forEach((person) => {
+    person.sourceRows.forEach((row) => {
+      if (!matchedRows.includes(row)) matchedRows.push(row);
+    });
+  });
+
+  panel.classList.remove("hidden");
+  el("rawMatchNote").textContent = `匹配 ${matchedRows.length.toLocaleString()} 条原始记录`;
+  table.innerHTML = "";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  state.headers.forEach((header) => {
+    const th = document.createElement("th");
+    th.textContent = header;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  matchedRows.slice(0, 100).forEach((row) => {
+    const tr = document.createElement("tr");
+    state.headers.forEach((header) => {
+      const td = document.createElement("td");
+      td.textContent = row[header] || "";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
 }
