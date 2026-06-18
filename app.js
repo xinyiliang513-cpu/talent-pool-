@@ -68,6 +68,11 @@ const palette = [
   "#ca8a04",
 ];
 
+const MISSING_LABEL = "Missing";
+const OTHER_LABEL = "Other";
+const PEOPLE_LABEL = "People";
+const SUBMISSIONS_LABEL = "Submissions";
+
 const chartLabelsPlugin = {
   id: "chartLabels",
   afterDatasetsDraw(chart) {
@@ -268,7 +273,7 @@ function bindActions() {
 
 async function loadFile(file) {
   if (!window.XLSX || !window.Chart) {
-    alert("图表依赖库还没有加载完成，请确认网络可访问 CDN 后刷新页面。");
+    alert("Chart libraries are still loading. Please refresh after CDN access is available.");
     return;
   }
 
@@ -406,7 +411,7 @@ function populateFilterOptions() {
 function setSelectOptions(id, values) {
   const select = el(id);
   const current = select.value;
-  select.innerHTML = '<option value="">全部</option>';
+  select.innerHTML = '<option value="">All</option>';
   values.slice(0, 300).forEach((value) => {
     const option = document.createElement("option");
     option.value = value;
@@ -427,7 +432,7 @@ function renderDashboard() {
   renderCharts(people, projectRows);
   renderSummaryTable();
   renderRawMatches(people);
-  el("sourceNote").textContent = `${state.sourceName} · 原始行 ${state.rows.length.toLocaleString()} · 当前筛选 ${people.length.toLocaleString()} 人`;
+  el("sourceNote").textContent = `${state.sourceName} · Source rows ${state.rows.length.toLocaleString()} · Current selection ${people.length.toLocaleString()} people`;
 }
 
 function getFilteredPeople() {
@@ -462,14 +467,14 @@ function renderKpis(people, allPeople, projectRows) {
   const total = people.length;
   const projectPeople = people.filter((person) => person.projects.length > 0).length;
   const avgProjects = total ? projectRows.length / total : 0;
-  const countryCount = countBy(people, (person) => person.country || "未填写").length;
+  const countryCount = countBy(people, (person) => person.country || MISSING_LABEL).length;
   const highEnglish = people.filter((person) => isHighEnglish(person.english)).length;
   const kpis = [
-    ["去重人数", total.toLocaleString(), `按 Contact Email 统计，占总库 ${percent(total, allPeople.length)}`],
-    ["有项目经验", projectPeople.toLocaleString(), `${percent(projectPeople, total)} 的当前人才`],
-    ["人均项目记录", avgProjects.toFixed(1), "合并 Project No.1-3"],
-    ["国家/地区覆盖", countryCount.toLocaleString(), "按 Resident Country/Region"],
-    ["高英语能力", highEnglish.toLocaleString(), `${percent(highEnglish, total)} 的当前人才`],
+    ["Unique People", total.toLocaleString(), `Counted by Contact Email, ${percent(total, allPeople.length)} of total pool`],
+    ["With Project Experience", projectPeople.toLocaleString(), `${percent(projectPeople, total)} of current talent`],
+    ["Avg. Project Records", avgProjects.toFixed(1), "Merged Project No.1-3"],
+    ["Country/Region Coverage", countryCount.toLocaleString(), "Based on Resident Country/Region"],
+    ["Strong English", highEnglish.toLocaleString(), `${percent(highEnglish, total)} of current talent`],
   ];
 
   const grid = el("kpiGrid");
@@ -485,19 +490,19 @@ function renderKpis(people, allPeople, projectRows) {
 }
 
 function renderCharts(people, projectRows) {
-  renderFlexibleChart("hoursChart", "人数", bucketCounts(people, (person) => person.hours, hourBucketFromText), {
+  renderFlexibleChart("hoursChart", PEOPLE_LABEL, bucketCounts(people, (person) => person.hours, hourBucketFromText), {
     compactBars: true,
   });
-  renderFlexibleChart("projectsChart", "人数", projectCountBuckets(people));
-  renderFlexibleChart("englishChart", "人数", topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8));
-  renderFlexibleChart("timelineChart", "提交人数", timelineCounts(people));
-  renderFlexibleChart("experienceChart", "人数", bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), {
+  renderFlexibleChart("projectsChart", PEOPLE_LABEL, projectCountBuckets(people));
+  renderFlexibleChart("englishChart", PEOPLE_LABEL, topCounts(countBy(people, (person) => clean(person.english) || MISSING_LABEL), 8));
+  renderFlexibleChart("timelineChart", SUBMISSIONS_LABEL, timelineCounts(people));
+  renderFlexibleChart("experienceChart", PEOPLE_LABEL, bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), {
     compactBars: true,
   });
-  renderFlexibleChart("businessLineChart", "人数", topCounts(countProjectValues(projectRows, "Business Line"), 12));
-  renderFlexibleChart("degreeChart", "人数", countBy(people, (person) => normalizeDegree(person.degree)));
-  renderFlexibleChart("countryChart", "人数", topCounts(countBy(people, (person) => person.country || "未填写"), 15));
-  renderFlexibleChart("majorChart", "人数", topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }));
+  renderFlexibleChart("businessLineChart", PEOPLE_LABEL, topCounts(countProjectValues(projectRows, "Business Line"), 12));
+  renderFlexibleChart("degreeChart", PEOPLE_LABEL, countBy(people, (person) => normalizeDegree(person.degree)));
+  renderFlexibleChart("countryChart", PEOPLE_LABEL, topCounts(countBy(people, (person) => person.country || MISSING_LABEL), 15));
+  renderFlexibleChart("majorChart", PEOPLE_LABEL, topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }));
 }
 
 function renderFlexibleChart(canvasId, label, rows, chartOptions = {}) {
@@ -560,7 +565,7 @@ function renderDoughnut(canvasId, rows, type = "doughnut") {
   });
 }
 
-function renderLine(canvasId, rows, label = "人数") {
+function renderLine(canvasId, rows, label = PEOPLE_LABEL) {
   renderChart(canvasId, {
     type: "line",
     data: {
@@ -620,22 +625,22 @@ function baseChartOptions(extra = {}) {
 }
 
 function buildSummaries(people, projectRows) {
-  const countries = enrichSummary(countBy(people, (person) => person.country || "未填写"), people.length);
+  const countries = enrichSummary(countBy(people, (person) => person.country || MISSING_LABEL), people.length);
   const businessLines = enrichSummary(countProjectValues(projectRows, "Business Line"), people.length);
   const domains = enrichSummary(countTokenValues(people, (person) => person.domain), people.length);
   const majors = enrichSummary(countTokenValues(people, (person) => person.major || person.domain), people.length);
   const experience = enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), people.length);
   const details = people.map((person) => ({
-    name: person.name || "未填写",
-    email: person.email || "未填写",
-    country: person.country || "未填写",
-    english: person.english || "未填写",
+    name: person.name || MISSING_LABEL,
+    email: person.email || MISSING_LABEL,
+    country: person.country || MISSING_LABEL,
+    english: person.english || MISSING_LABEL,
     degree: normalizeDegree(person.degree),
-    major: person.major || "未填写",
-    hours: person.hours || "未填写",
-    yearsExperience: person.yearsExperience || "未填写",
+    major: person.major || MISSING_LABEL,
+    hours: person.hours || MISSING_LABEL,
+    yearsExperience: person.yearsExperience || MISSING_LABEL,
     projectCount: person.projects.length || parseProjectCount(person.projectCount) || 0,
-    pm: person.pm || "未填写",
+    pm: person.pm || MISSING_LABEL,
   }));
   return { countries, businessLines, domains, majors, experience, details };
 }
@@ -645,8 +650,8 @@ function renderSummaryTable() {
   const rows = state.summaries[state.currentSummary] || [];
   const isDetails = state.currentSummary === "details";
   const headers = isDetails
-    ? ["姓名", "邮箱", "国家/地区", "英语水平", "学历", "专业", "工作时长", "工作经验年限", "项目数", "PM"]
-    : ["分类", "人数", "占比"];
+    ? ["Name", "Email", "Country/Region", "English Level", "Education", "Major", "Working Hours", "Years of Work Experience", "Project Count", "PM"]
+    : ["Category", "People", "Share"];
 
   table.innerHTML = "";
   const thead = document.createElement("thead");
@@ -678,9 +683,9 @@ function renderSummaryTable() {
 function copyCurrentTable() {
   const csv = currentSummaryCsv();
   navigator.clipboard.writeText(csv).then(() => {
-    el("copyTable").textContent = "已复制";
+    el("copyTable").textContent = "Copied";
     setTimeout(() => {
-      el("copyTable").textContent = "复制";
+      el("copyTable").textContent = "Copy";
     }, 1200);
   });
 }
@@ -727,12 +732,12 @@ async function copyReportForFeishu() {
     } else {
       await navigator.clipboard.writeText(textReport);
     }
-    el("copyReport").textContent = "已复制";
+    el("copyReport").textContent = "Copied";
     setTimeout(() => {
-      el("copyReport").textContent = "复制报告";
+      el("copyReport").textContent = "Copy Report";
     }, 1400);
   } catch (error) {
-    alert("复制失败，请确认浏览器允许剪贴板权限。");
+    alert("Copy failed. Please allow clipboard permission in the browser.");
   }
 }
 
@@ -745,13 +750,13 @@ function buildMarkdownReport() {
   const projectRows = people.flatMap((person) => person.projects.map((project) => ({ person, project })));
   const sections = buildReportSections(people, projectRows);
   const lines = [
-    "# Talent Pool 人力画像分析报告",
+    "# Talent Pool Analytics Report",
     "",
-    `- 来源文件：${state.sourceName}`,
-    `- 统计口径：按 Contact Email 去重统计人数`,
-    `- 当前筛选人数：${people.length.toLocaleString()}`,
-    `- 有项目经验人数：${people.filter((person) => person.projects.length > 0).length.toLocaleString()}`,
-    `- 国家/地区覆盖：${countBy(people, (person) => person.country || "未填写").length.toLocaleString()}`,
+    `- Source file: ${state.sourceName}`,
+    `- Counting method: unique people by Contact Email`,
+    `- Current selection: ${people.length.toLocaleString()}`,
+    `- People with project experience: ${people.filter((person) => person.projects.length > 0).length.toLocaleString()}`,
+    `- Country/region coverage: ${countBy(people, (person) => person.country || MISSING_LABEL).length.toLocaleString()}`,
     "",
     ...sections.flatMap((section) => [
       `## ${section.title}`,
@@ -768,19 +773,19 @@ function buildHtmlReport() {
   const experienced = people.filter((person) => person.projects.length > 0).length;
   const sections = buildReportSections(people, projectRows);
   const cards = [
-    ["当前筛选人数", people.length.toLocaleString()],
-    ["有项目经验人数", experienced.toLocaleString()],
-    ["国家/地区覆盖", countBy(people, (person) => person.country || "未填写").length.toLocaleString()],
-    ["高英语能力", people.filter((person) => isHighEnglish(person.english)).length.toLocaleString()],
+    ["Current Selection", people.length.toLocaleString()],
+    ["With Project Experience", experienced.toLocaleString()],
+    ["Country/Region Coverage", countBy(people, (person) => person.country || MISSING_LABEL).length.toLocaleString()],
+    ["Strong English", people.filter((person) => isHighEnglish(person.english)).length.toLocaleString()],
   ];
 
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Talent Pool 人力画像分析报告</title>
+  <title>Talent Pool Analytics Report</title>
   <style>
-    body { margin: 0; color: #17202f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f5f7fb; line-height: 1.55; }
+    body { margin: 0; color: #17202f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: #f5f7fb; line-height: 1.55; }
     main { max-width: 1040px; margin: 0 auto; padding: 36px 24px 52px; }
     h1 { margin: 0 0 8px; font-size: 30px; }
     h2 { margin: 30px 0 12px; font-size: 20px; }
@@ -799,8 +804,8 @@ function buildHtmlReport() {
 </head>
 <body>
   <main>
-    <h1>Talent Pool 人力画像分析报告</h1>
-    <div class="meta">来源文件：${escapeHtml(state.sourceName)} · 统计口径：按 Contact Email 去重统计人数</div>
+    <h1>Talent Pool Analytics Report</h1>
+    <div class="meta">Source file: ${escapeHtml(state.sourceName)} · Counting method: unique people by Contact Email</div>
     <section class="grid">${cards.map(([label, value]) => `<article class="card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</section>
     ${sections.map((section) => `<section class="chart-block">
       <h2>${escapeHtml(section.title)}</h2>
@@ -816,27 +821,27 @@ function buildReportSections(people, projectRows) {
   const total = people.length;
   return [
     {
-      title: "工作时长分布",
+      title: "Working Hours",
       chartId: "hoursChart",
       rows: enrichSummary(bucketCounts(people, (person) => person.hours, hourBucketFromText), total),
     },
     {
-      title: "项目数量",
+      title: "Project Count",
       chartId: "projectsChart",
       rows: enrichSummary(projectCountBuckets(people), total),
     },
     {
-      title: "英语水平",
+      title: "English Level",
       chartId: "englishChart",
-      rows: enrichSummary(topCounts(countBy(people, (person) => clean(person.english) || "未填写"), 8), total),
+      rows: enrichSummary(topCounts(countBy(people, (person) => clean(person.english) || MISSING_LABEL), 8), total),
     },
     {
-      title: "提交时间趋势（月度）",
+      title: "Submission Trend by Month",
       chartId: "timelineChart",
       rows: enrichSummary(timelineCounts(people), total),
     },
     {
-      title: "工作经验年限",
+      title: "Years of Work Experience",
       chartId: "experienceChart",
       rows: enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), total),
     },
@@ -846,17 +851,17 @@ function buildReportSections(people, projectRows) {
       rows: enrichSummary(topCounts(countProjectValues(projectRows, "Business Line"), 12), total),
     },
     {
-      title: "学历结构",
+      title: "Education",
       chartId: "degreeChart",
       rows: enrichSummary(countBy(people, (person) => normalizeDegree(person.degree)), total),
     },
     {
-      title: "国家/地区 Top 15",
+      title: "Country/Region Top 15",
       chartId: "countryChart",
-      rows: enrichSummary(topCounts(countBy(people, (person) => person.country || "未填写"), 15), total),
+      rows: enrichSummary(topCounts(countBy(people, (person) => person.country || MISSING_LABEL), 15), total),
     },
     {
-      title: "专业/领域 Top 20",
+      title: "Major/Domain Top 20",
       chartId: "majorChart",
       rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }), total),
     },
@@ -866,16 +871,16 @@ function buildReportSections(people, projectRows) {
 function chartImageHtml(chartId) {
   const chart = state.charts[chartId];
   if (!chart) return "";
-  return `<img src="${chart.toBase64Image("image/png", 1)}" alt="${escapeHtml(chartId)} 图表" />`;
+  return `<img src="${chart.toBase64Image("image/png", 1)}" alt="${escapeHtml(chartId)} chart" />`;
 }
 
 function markdownTable(rows) {
   const tableRows = rows.map((row) => `| ${row.name} | ${row.count} | ${row.share} |`);
-  return ["| 分类 | 人数 | 占比 |", "| --- | ---: | ---: |", ...tableRows].join("\n");
+  return ["| Category | People | Share |", "| --- | ---: | ---: |", ...tableRows].join("\n");
 }
 
 function htmlTable(rows) {
-  return `<table><thead><tr><th>分类</th><th>人数</th><th>占比</th></tr></thead><tbody>${rows.map((row) =>
+  return `<table><thead><tr><th>Category</th><th>People</th><th>Share</th></tr></thead><tbody>${rows.map((row) =>
     `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.count)}</td><td>${escapeHtml(row.share)}</td></tr>`,
   ).join("")}</tbody></table>`;
 }
@@ -911,7 +916,7 @@ function downloadText(filename, text, type) {
 function countBy(items, getName) {
   const counts = new Map();
   items.forEach((item) => {
-    const name = clean(getName(item)) || "未填写";
+    const name = clean(getName(item)) || MISSING_LABEL;
     counts.set(name, (counts.get(name) || 0) + 1);
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
@@ -920,8 +925,8 @@ function countBy(items, getName) {
 function countTokenValues(items, getValue) {
   const counts = new Map();
   items.forEach((item) => {
-    const tokens = splitMultiValue(getValue(item));
-    const unique = new Set(tokens.length ? tokens : ["未填写"]);
+    const tokens = splitMultiValue(getValue(item)).map(normalizeAnalyticCategory).filter(Boolean);
+    const unique = new Set(tokens.length ? tokens : [MISSING_LABEL]);
     unique.forEach((token) => counts.set(token, (counts.get(token) || 0) + 1));
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
@@ -930,7 +935,7 @@ function countTokenValues(items, getValue) {
 function countProjectValues(projectRows, field) {
   const counts = new Map();
   projectRows.forEach(({ person, project }) => {
-    const tokens = splitMultiValue(project[field]).map(normalizeCategory);
+    const tokens = splitMultiValue(project[field]).map(normalizeAnalyticCategory).filter(Boolean);
     tokens.forEach((token) => {
       const key = `${token}::${person.key}`;
       counts.set(key, { name: token, person: person.key });
@@ -943,7 +948,7 @@ function countProjectValues(projectRows, field) {
   return Array.from(peopleByValue, ([name, count]) => ({ name, count })).sort(sortCountThenName);
 }
 
-function bucketCounts(items, getValue, getBucket, order = ["未填写", "0-4h", "4-8h", "8h+"]) {
+function bucketCounts(items, getValue, getBucket, order = [MISSING_LABEL, "0-4h", "4-8h", "8h+"]) {
   const counts = new Map(order.map((name) => [name, 0]));
   items.forEach((item) => {
     const bucket = getBucket(getValue(item));
@@ -954,16 +959,16 @@ function bucketCounts(items, getValue, getBucket, order = ["未填写", "0-4h", 
 
 function projectCountBuckets(people) {
   const counts = new Map([
-    ["未填写/0", 0],
-    ["1 个", 0],
-    ["2 个", 0],
-    ["3 个", 0],
-    ["4-5 个", 0],
-    ["6+ 个", 0],
+    ["Missing/0", 0],
+    ["1 project", 0],
+    ["2 projects", 0],
+    ["3 projects", 0],
+    ["4-5 projects", 0],
+    ["6+ projects", 0],
   ]);
   people.forEach((person) => {
     const count = Math.max(person.projects.length, parseProjectCount(person.projectCount));
-    const bucket = count <= 0 ? "未填写/0" : count === 1 ? "1 个" : count === 2 ? "2 个" : count === 3 ? "3 个" : count <= 5 ? "4-5 个" : "6+ 个";
+    const bucket = count <= 0 ? "Missing/0" : count === 1 ? "1 project" : count === 2 ? "2 projects" : count === 3 ? "3 projects" : count <= 5 ? "4-5 projects" : "6+ projects";
     counts.set(bucket, counts.get(bucket) + 1);
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).filter((row) => row.count > 0);
@@ -991,7 +996,7 @@ function timelineCounts(people) {
     }
   }
   return Array.from(counts, ([name, count]) => ({ name, count }))
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+    .sort((a, b) => a.name.localeCompare(b.name, "en"));
 }
 
 function monthKey(date) {
@@ -1009,12 +1014,12 @@ function topCounts(rows, limit, options = {}) {
   const includeOther = options.includeOther !== false;
   const top = rows.slice(0, limit);
   const rest = rows.slice(limit).reduce((sum, row) => sum + row.count, 0);
-  if (includeOther && rest > 0) top.push({ name: "其他", count: rest });
+  if (includeOther && rest > 0) top.push({ name: OTHER_LABEL, count: rest });
   return top;
 }
 
 function sortCountThenName(a, b) {
-  return b.count - a.count || String(a.name).localeCompare(String(b.name), "zh-CN");
+  return b.count - a.count || String(a.name).localeCompare(String(b.name), "en");
 }
 
 function splitMultiValue(value) {
@@ -1026,10 +1031,20 @@ function splitMultiValue(value) {
 }
 
 function normalizeCategory(value) {
+  return normalizeAnalyticCategory(value);
+}
+
+function normalizeAnalyticCategory(value) {
   const text = clean(value);
   if (!text) return "";
-  const lower = text.toLowerCase();
+  if (isPlaceholderCategory(text)) return OTHER_LABEL;
+  const key = categoryKey(text);
   const known = {
+    adlabeling: "Ads Labelling",
+    adlabelling: "Ads Labelling",
+    adslabeling: "Ads Labelling",
+    adslabelling: "Ads Labelling",
+    adslabel: "Ads Labelling",
     annotation: "Annotation",
     collection: "Collection",
     evaluation: "Evaluation",
@@ -1038,26 +1053,63 @@ function normalizeCategory(value) {
     business: "Business",
     finance: "Finance",
     translation: "Translation",
+    llm: "LLM",
+    li: "LI (Language Intelligence)",
+    languageintelligence: "LI (Language Intelligence)",
+    lilanguageintelligence: "LI (Language Intelligence)",
+    search: "Search",
+    other: OTHER_LABEL,
+    multimodalai: "Multimodal AI",
+    qa: "QA",
+    nlp: "NLP",
+    tts: "TTS",
   };
-  return known[lower] || text;
+  if (/^li.*languageintelligence$/.test(key)) return "LI (Language Intelligence)";
+  if (known[key]) return known[key];
+  return smartTitleCase(text);
+}
+
+function categoryKey(value) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function smartTitleCase(value) {
+  const acronymSet = new Set(["ai", "api", "cv", "id", "li", "llm", "nlp", "ocr", "pm", "qa", "sql", "tts", "ui", "ux"]);
+  return clean(value)
+    .replace(/[_/\\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => {
+      const bare = word.replace(/[^a-z0-9]/gi, "");
+      const lower = bare.toLowerCase();
+      if (acronymSet.has(lower)) return lower.toUpperCase();
+      if (/^[A-Z0-9]{2,}$/.test(bare) && bare.length <= 5) return bare;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
 }
 
 function normalizeDegree(value) {
   const text = clean(value);
   const lower = text.toLowerCase();
-  if (!text) return "其他";
-  if (isPlaceholderCategory(text)) return "其他";
-  if (text.includes("未填写")) return "其他";
-  if (/^(n\/?a|none|null|unknown|not applicable)$/i.test(text)) return "其他";
-  if (lower.includes("phd") || lower.includes("doctor") || text.includes("博士")) return "博士";
-  if (lower.includes("master") || text.includes("硕士") || text.includes("研究生")) return "硕士";
-  if (lower.includes("bachelor") || text.includes("本科") || text.includes("学士")) return "本科";
-  if (lower.includes("associate") || text.includes("大专") || text.includes("专科") || lower.includes("college")) return "大专";
-  if (lower.includes("high school") || text.includes("高中") || text.includes("中专")) return "高中及以下";
-  if (lower.includes("high education") || text.includes("高学历")) return "硕士";
-  if (lower.includes("undergraduate")) return "本科";
-  if (lower.includes("postgraduate")) return "硕士";
-  return "其他";
+  if (!text) return OTHER_LABEL;
+  if (isPlaceholderCategory(text)) return OTHER_LABEL;
+  if (text.includes("未填写")) return OTHER_LABEL;
+  if (/^(n\/?a|none|null|unknown|not applicable)$/i.test(text)) return OTHER_LABEL;
+  if (lower.includes("phd") || lower.includes("doctor") || text.includes("博士")) return "Doctorate";
+  if (lower.includes("master") || text.includes("硕士") || text.includes("研究生")) return "Master's";
+  if (lower.includes("bachelor") || text.includes("本科") || text.includes("学士")) return "Bachelor's";
+  if (lower.includes("associate") || text.includes("大专") || text.includes("专科") || lower.includes("college")) return "Associate";
+  if (lower.includes("high school") || text.includes("高中") || text.includes("中专")) return "High School or Below";
+  if (lower.includes("high education") || text.includes("高学历")) return "Master's";
+  if (lower.includes("undergraduate")) return "Bachelor's";
+  if (lower.includes("postgraduate")) return "Master's";
+  return OTHER_LABEL;
 }
 
 function isPlaceholderCategory(value) {
@@ -1069,12 +1121,12 @@ function isPlaceholderCategory(value) {
 
 function hourBucketFromText(value) {
   const text = clean(value).toLowerCase();
-  if (!text) return "未填写";
+  if (!text) return MISSING_LABEL;
   if (/less[_\s-]*4|<\s*4/.test(text)) return "0-4h";
   if (/4[_\s-]*8|4\s*-\s*8/.test(text)) return "4-8h";
   if (/more[_\s-]*8|>\s*8/.test(text)) return "8h+";
   const match = text.match(/\d+(\.\d+)?/);
-  if (!match) return "未填写";
+  if (!match) return MISSING_LABEL;
   const hours = Number(match[0]);
   if (hours < 4) return "0-4h";
   if (hours <= 8) return "4-8h";
@@ -1082,51 +1134,29 @@ function hourBucketFromText(value) {
 }
 
 function experienceBucketOrder() {
-  return ["未填写", "0-1年", "1-3年", "3-5年", "5-10年", "10年以上"];
+  return [MISSING_LABEL, "0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"];
 }
 
 function experienceBucketFromText(value) {
   const text = clean(value).toLowerCase();
-  if (!text) return "未填写";
-  if (/no experience|none|无/.test(text)) return "0-1年";
+  if (!text) return MISSING_LABEL;
+  if (/no experience|none|无/.test(text)) return "0-1 years";
   const range = text.match(/(\d+(?:\.\d+)?)\s*[-~至到]\s*(\d+(?:\.\d+)?)/);
   if (range) return experienceBucketFromNumber((Number(range[1]) + Number(range[2])) / 2);
   const plus = text.match(/(\d+(?:\.\d+)?)\s*(?:\+|plus|以上|more)/);
   if (plus) return experienceBucketFromNumber(Number(plus[1]) + 0.1);
   const match = text.match(/\d+(\.\d+)?/);
-  if (!match) return "未填写";
+  if (!match) return MISSING_LABEL;
   return experienceBucketFromNumber(Number(match[0]));
 }
 
 function experienceBucketFromNumber(years) {
-  if (!Number.isFinite(years)) return "未填写";
-  if (years < 1) return "0-1年";
-  if (years < 3) return "1-3年";
-  if (years < 5) return "3-5年";
-  if (years < 10) return "5-10年";
-  return "10年以上";
-}
-
-function toChineseDegreeLabel(text) {
-  const lower = text.toLowerCase();
-  const replacements = [
-    [/native speaker/g, "母语者"],
-    [/advanced/g, "高级"],
-    [/proficient/g, "熟练"],
-    [/upper intermediate/g, "中高级"],
-    [/intermediate/g, "中级"],
-    [/elementary/g, "初级"],
-    [/beginner/g, "入门"],
-    [/degree/g, "学历"],
-    [/education/g, "教育背景"],
-  ];
-  let result = lower;
-  replacements.forEach(([pattern, replacement]) => {
-    result = result.replace(pattern, replacement);
-  });
-  result = result.replace(/\b[a-z]+\b/g, "").replace(/\s+/g, " ").trim();
-  const finalText = result || text;
-  return finalText.length > 42 ? `${finalText.slice(0, 42)}...` : finalText;
+  if (!Number.isFinite(years)) return MISSING_LABEL;
+  if (years < 1) return "0-1 years";
+  if (years < 3) return "1-3 years";
+  if (years < 5) return "3-5 years";
+  if (years < 10) return "5-10 years";
+  return "10+ years";
 }
 
 function parseProjectCount(value) {
@@ -1157,7 +1187,7 @@ function percent(numerator, denominator) {
 }
 
 function uniqueSorted(values) {
-  return Array.from(new Set(values.map(clean).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  return Array.from(new Set(values.map(clean).filter(Boolean))).sort((a, b) => a.localeCompare(b, "en"));
 }
 
 function normalizeCell(value) {
@@ -1191,7 +1221,7 @@ function renderRawMatches(people) {
   });
 
   panel.classList.remove("hidden");
-  el("rawMatchNote").textContent = `匹配 ${matchedRows.length.toLocaleString()} 条原始记录`;
+  el("rawMatchNote").textContent = `Matched ${matchedRows.length.toLocaleString()} source rows`;
   table.innerHTML = "";
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
