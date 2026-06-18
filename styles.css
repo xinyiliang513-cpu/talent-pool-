@@ -84,6 +84,7 @@ h2 {
 
 .actions,
 .inline-actions,
+.chart-actions,
 .panel-head,
 .filter-head {
   display: flex;
@@ -171,6 +172,21 @@ main {
   background: #fff;
   border-color: #b9cbe0;
   padding: 6px 10px;
+}
+
+.chart-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.chart-actions select {
+  min-height: 34px;
+  border: 1px solid #b9cbe0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff;
+  padding: 5px 8px;
+  font-weight: 700;
 }
 
 .filters label {
@@ -265,6 +281,12 @@ main {
   margin-bottom: 12px;
 }
 
+.panel-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 canvas {
   width: 100% !important;
   height: 310px !important;
@@ -283,6 +305,10 @@ canvas {
   max-height: 520px;
   border: 1px solid var(--line);
   border-radius: 6px;
+}
+
+.raw-table-wrap {
+  max-height: 420px;
 }
 
 table {
@@ -360,5 +386,10 @@ tr:hover td {
   .inline-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .chart-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
