@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Talent Pool 人力画像分析</title>
+    <title>Talent Pool Analytics</title>
     <link rel="stylesheet" href="./styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -12,58 +12,58 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">Talent Pool Analytics</p>
-        <h1>人力画像自动化分析</h1>
+        <h1>Talent Pool Analytics</h1>
       </div>
       <div class="actions">
-        <label class="upload-button" for="fileInput">上传 Excel</label>
+        <label class="upload-button" for="fileInput">Upload Excel</label>
         <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
-        <button id="copyReport" type="button" disabled>复制报告</button>
-        <button id="downloadHtmlReport" type="button" disabled>下载 HTML</button>
-        <button id="downloadReport" type="button" disabled>下载 Markdown</button>
+        <button id="copyReport" type="button" disabled>Copy Report</button>
+        <button id="downloadHtmlReport" type="button" disabled>Download HTML</button>
+        <button id="downloadReport" type="button" disabled>Download Markdown</button>
       </div>
     </header>
 
     <main>
       <section class="upload-panel" id="emptyState">
         <div class="drop-zone" id="dropZone">
-          <strong>拖入或上传 survey pool Excel</strong>
-          <span>统计人数按 Contact Email 去重；表头保持不变即可反复使用。</span>
+          <strong>Drop or upload the survey pool Excel file</strong>
+          <span>People are counted by unique Contact Email. Keep the headers unchanged for repeat use.</span>
         </div>
       </section>
 
       <section class="dashboard hidden" id="dashboard">
         <aside class="filters">
           <div class="filter-head">
-            <h2>筛选</h2>
-            <button id="resetFilters" type="button">重置</button>
+            <h2>Filters</h2>
+            <button id="resetFilters" type="button">Reset</button>
           </div>
           <label>
-            国家/地区
+            Country/Region
             <select id="countryFilter">
-              <option value="">全部</option>
+              <option value="">All</option>
             </select>
           </label>
           <label>
-            英语水平
+            English Level
             <select id="englishFilter">
-              <option value="">全部</option>
+              <option value="">All</option>
             </select>
           </label>
           <label>
-            学历
+            Education
             <select id="degreeFilter">
-              <option value="">全部</option>
+              <option value="">All</option>
             </select>
           </label>
           <label>
             PM
             <select id="pmFilter">
-              <option value="">全部</option>
+              <option value="">All</option>
             </select>
           </label>
           <label>
-            搜索姓名/邮箱/专业
-            <input id="searchInput" type="search" placeholder="输入关键词" />
+            Search Name/Email/Major
+            <input id="searchInput" type="search" placeholder="Enter keyword" />
           </label>
           <div class="source-note" id="sourceNote"></div>
         </aside>
@@ -74,14 +74,14 @@
           <section class="chart-grid">
             <article class="panel wide">
               <div class="panel-head">
-                <h2>工作时长分布</h2>
+                <h2>Working Hours</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="hoursChart" aria-label="切换工作时长图表类型">
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
-                    <option value="line">折线图</option>
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
+                  <select data-chart-type="hoursChart" aria-label="Switch working hours chart type">
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
+                    <option value="line">Line</option>
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
                   </select>
                   <button data-download-chart="hoursChart" type="button">PNG</button>
                 </div>
@@ -90,14 +90,14 @@
             </article>
             <article class="panel">
               <div class="panel-head">
-                <h2>项目数量</h2>
+                <h2>Project Count</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="projectsChart" aria-label="切换项目数量图表类型">
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
-                    <option value="line">折线图</option>
+                  <select data-chart-type="projectsChart" aria-label="Switch project count chart type">
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
+                    <option value="line">Line</option>
                   </select>
                   <button data-download-chart="projectsChart" type="button">PNG</button>
                 </div>
@@ -106,14 +106,14 @@
             </article>
             <article class="panel">
               <div class="panel-head">
-                <h2>英语水平</h2>
+                <h2>English Level</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="englishChart" aria-label="切换英语水平图表类型">
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
-                    <option value="line">折线图</option>
+                  <select data-chart-type="englishChart" aria-label="Switch English level chart type">
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
+                    <option value="line">Line</option>
                   </select>
                   <button data-download-chart="englishChart" type="button">PNG</button>
                 </div>
@@ -122,12 +122,12 @@
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>提交时间趋势（月度）</h2>
+                <h2>Submission Trend by Month</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="timelineChart" aria-label="切换提交时间趋势图表类型">
-                    <option value="line">折线图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
+                  <select data-chart-type="timelineChart" aria-label="Switch submission trend chart type">
+                    <option value="line">Line</option>
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
                   </select>
                   <button data-download-chart="timelineChart" type="button">PNG</button>
                 </div>
@@ -136,14 +136,14 @@
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>工作经验年限</h2>
+                <h2>Years of Work Experience</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="experienceChart" aria-label="切换工作经验年限图表类型">
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
-                    <option value="line">折线图</option>
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
+                  <select data-chart-type="experienceChart" aria-label="Switch work experience chart type">
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
+                    <option value="line">Line</option>
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
                   </select>
                   <button data-download-chart="experienceChart" type="button">PNG</button>
                 </div>
@@ -154,12 +154,12 @@
               <div class="panel-head">
                 <h2>Business Line Top 12</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="businessLineChart" aria-label="切换 Business Line 图表类型">
-                    <option value="barY">横条图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="line">折线图</option>
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
+                  <select data-chart-type="businessLineChart" aria-label="Switch Business Line chart type">
+                    <option value="barY">Bar</option>
+                    <option value="bar">Column</option>
+                    <option value="line">Line</option>
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
                   </select>
                   <button data-download-chart="businessLineChart" type="button">PNG</button>
                 </div>
@@ -168,14 +168,14 @@
             </article>
             <article class="panel">
               <div class="panel-head">
-                <h2>学历结构</h2>
+                <h2>Education</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="degreeChart" aria-label="切换学历结构图表类型">
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="barY">横条图</option>
-                    <option value="line">折线图</option>
+                  <select data-chart-type="degreeChart" aria-label="Switch education chart type">
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
+                    <option value="bar">Column</option>
+                    <option value="barY">Bar</option>
+                    <option value="line">Line</option>
                   </select>
                   <button data-download-chart="degreeChart" type="button">PNG</button>
                 </div>
@@ -184,14 +184,14 @@
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>国家/地区 Top 15</h2>
+                <h2>Country/Region Top 15</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="countryChart" aria-label="切换国家地区图表类型">
-                    <option value="barY">横条图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="line">折线图</option>
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
+                  <select data-chart-type="countryChart" aria-label="Switch country/region chart type">
+                    <option value="barY">Bar</option>
+                    <option value="bar">Column</option>
+                    <option value="line">Line</option>
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
                   </select>
                   <button data-download-chart="countryChart" type="button">PNG</button>
                 </div>
@@ -200,14 +200,14 @@
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>专业/领域 Top 20</h2>
+                <h2>Major/Domain Top 20</h2>
                 <div class="chart-actions">
-                  <select data-chart-type="majorChart" aria-label="切换专业领域图表类型">
-                    <option value="barY">横条图</option>
-                    <option value="bar">柱状图</option>
-                    <option value="line">折线图</option>
-                    <option value="doughnut">环形图</option>
-                    <option value="pie">饼图</option>
+                  <select data-chart-type="majorChart" aria-label="Switch major/domain chart type">
+                    <option value="barY">Bar</option>
+                    <option value="bar">Column</option>
+                    <option value="line">Line</option>
+                    <option value="doughnut">Doughnut</option>
+                    <option value="pie">Pie</option>
                   </select>
                   <button data-download-chart="majorChart" type="button">PNG</button>
                 </div>
@@ -218,7 +218,7 @@
 
           <section class="table-panel hidden" id="rawMatchPanel">
             <div class="panel-head">
-              <h2>原表匹配记录</h2>
+              <h2>Source Rows</h2>
               <span class="panel-note" id="rawMatchNote"></span>
             </div>
             <div class="table-wrap raw-table-wrap">
@@ -228,17 +228,17 @@
 
           <section class="table-panel">
             <div class="panel-head">
-              <h2>可复制汇总表</h2>
+              <h2>Copyable Summary Table</h2>
               <div class="inline-actions">
                 <select id="summarySelect">
-                  <option value="countries">国家/地区</option>
+                  <option value="countries">Country/Region</option>
                   <option value="businessLines">Business Line</option>
-                  <option value="domains">领域</option>
-                  <option value="majors">专业</option>
-                  <option value="experience">工作经验年限</option>
-                  <option value="details">人才明细</option>
+                  <option value="domains">Domain</option>
+                  <option value="majors">Major</option>
+                  <option value="experience">Years of Experience</option>
+                  <option value="details">Talent Details</option>
                 </select>
-                <button id="copyTable" type="button">复制</button>
+                <button id="copyTable" type="button">Copy</button>
                 <button id="downloadCsv" type="button">CSV</button>
               </div>
             </div>
@@ -258,6 +258,6 @@
       </article>
     </template>
 
-    <script src="./app.js?v=20260618-degree-fixed-buckets"></script>
+    <script src="./app.js?v=20260618-english-smart-categories"></script>
   </body>
 </html>
