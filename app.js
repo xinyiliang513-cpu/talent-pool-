@@ -495,7 +495,7 @@ function renderCharts(people, projectRows) {
     compactBars: true,
   });
   renderFlexibleChart("businessLineChart", "人数", topCounts(countProjectValues(projectRows, "Business Line"), 12));
-  renderFlexibleChart("degreeChart", "人数", topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8));
+  renderFlexibleChart("degreeChart", "人数", countBy(people, (person) => normalizeDegree(person.degree)));
   renderFlexibleChart("countryChart", "人数", topCounts(countBy(people, (person) => person.country || "未填写"), 15));
   renderFlexibleChart("majorChart", "人数", topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }));
 }
@@ -630,7 +630,7 @@ function buildSummaries(people, projectRows) {
     email: person.email || "未填写",
     country: person.country || "未填写",
     english: person.english || "未填写",
-    degree: normalizeDegree(person.degree) || "未填写",
+    degree: normalizeDegree(person.degree),
     major: person.major || "未填写",
     hours: person.hours || "未填写",
     yearsExperience: person.yearsExperience || "未填写",
@@ -848,7 +848,7 @@ function buildReportSections(people, projectRows) {
     {
       title: "学历结构",
       chartId: "degreeChart",
-      rows: enrichSummary(topCounts(countBy(people, (person) => normalizeDegree(person.degree) || "未填写"), 8), total),
+      rows: enrichSummary(countBy(people, (person) => normalizeDegree(person.degree)), total),
     },
     {
       title: "国家/地区 Top 15",
@@ -1045,20 +1045,19 @@ function normalizeCategory(value) {
 function normalizeDegree(value) {
   const text = clean(value);
   const lower = text.toLowerCase();
-  if (!text) return "";
+  if (!text) return "其他";
   if (isPlaceholderCategory(text)) return "其他";
-  if (text.includes("未填写")) return "未填写";
+  if (text.includes("未填写")) return "其他";
   if (/^(n\/?a|none|null|unknown|not applicable)$/i.test(text)) return "其他";
   if (lower.includes("phd") || lower.includes("doctor") || text.includes("博士")) return "博士";
   if (lower.includes("master") || text.includes("硕士") || text.includes("研究生")) return "硕士";
   if (lower.includes("bachelor") || text.includes("本科") || text.includes("学士")) return "本科";
-  if (lower.includes("associate") || text.includes("大专") || text.includes("专科")) return "大专";
-  if (lower.includes("college")) return "大专/本科";
+  if (lower.includes("associate") || text.includes("大专") || text.includes("专科") || lower.includes("college")) return "大专";
   if (lower.includes("high school") || text.includes("高中") || text.includes("中专")) return "高中及以下";
-  if (lower.includes("high education") || text.includes("高学历")) return "高学历";
+  if (lower.includes("high education") || text.includes("高学历")) return "硕士";
   if (lower.includes("undergraduate")) return "本科";
-  if (lower.includes("postgraduate")) return "硕士及以上";
-  return toChineseDegreeLabel(text);
+  if (lower.includes("postgraduate")) return "硕士";
+  return "其他";
 }
 
 function isPlaceholderCategory(value) {
