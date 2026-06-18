@@ -75,66 +75,155 @@
             <article class="panel wide">
               <div class="panel-head">
                 <h2>工作时长分布</h2>
-                <button data-download-chart="hoursChart" type="button">PNG</button>
+                <div class="chart-actions">
+                  <select data-chart-type="hoursChart" aria-label="切换工作时长图表类型">
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                    <option value="line">折线图</option>
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                  </select>
+                  <button data-download-chart="hoursChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="hoursChart"></canvas>
             </article>
             <article class="panel">
               <div class="panel-head">
                 <h2>项目数量</h2>
-                <button data-download-chart="projectsChart" type="button">PNG</button>
+                <div class="chart-actions">
+                  <select data-chart-type="projectsChart" aria-label="切换项目数量图表类型">
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                    <option value="line">折线图</option>
+                  </select>
+                  <button data-download-chart="projectsChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="projectsChart"></canvas>
             </article>
             <article class="panel">
               <div class="panel-head">
                 <h2>英语水平</h2>
-                <button data-download-chart="englishChart" type="button">PNG</button>
+                <div class="chart-actions">
+                  <select data-chart-type="englishChart" aria-label="切换英语水平图表类型">
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                    <option value="line">折线图</option>
+                  </select>
+                  <button data-download-chart="englishChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="englishChart"></canvas>
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>提交时间趋势</h2>
-                <button data-download-chart="timelineChart" type="button">PNG</button>
+                <h2>提交时间趋势（月度）</h2>
+                <div class="chart-actions">
+                  <select data-chart-type="timelineChart" aria-label="切换提交时间趋势图表类型">
+                    <option value="line">折线图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                  </select>
+                  <button data-download-chart="timelineChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="timelineChart"></canvas>
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>项目类型 Top 12</h2>
-                <button data-download-chart="projectTypeChart" type="button">PNG</button>
+                <h2>工作经验年限</h2>
+                <div class="chart-actions">
+                  <select data-chart-type="experienceChart" aria-label="切换工作经验年限图表类型">
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                    <option value="line">折线图</option>
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                  </select>
+                  <button data-download-chart="experienceChart" type="button">PNG</button>
+                </div>
               </div>
-              <canvas id="projectTypeChart"></canvas>
+              <canvas id="experienceChart"></canvas>
+            </article>
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>Business Line Top 12</h2>
+                <div class="chart-actions">
+                  <select data-chart-type="businessLineChart" aria-label="切换 Business Line 图表类型">
+                    <option value="barY">横条图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="line">折线图</option>
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                  </select>
+                  <button data-download-chart="businessLineChart" type="button">PNG</button>
+                </div>
+              </div>
+              <canvas id="businessLineChart"></canvas>
             </article>
             <article class="panel">
               <div class="panel-head">
                 <h2>学历结构</h2>
-                <button data-download-chart="degreeChart" type="button">PNG</button>
+                <div class="chart-actions">
+                  <select data-chart-type="degreeChart" aria-label="切换学历结构图表类型">
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="barY">横条图</option>
+                    <option value="line">折线图</option>
+                  </select>
+                  <button data-download-chart="degreeChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="degreeChart"></canvas>
             </article>
-            <article class="panel">
+            <article class="panel wide">
               <div class="panel-head">
-                <h2>国家/地区 Top 10</h2>
-                <button data-download-chart="countryChart" type="button">PNG</button>
+                <h2>国家/地区 Top 15</h2>
+                <div class="chart-actions">
+                  <select data-chart-type="countryChart" aria-label="切换国家地区图表类型">
+                    <option value="barY">横条图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="line">折线图</option>
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                  </select>
+                  <button data-download-chart="countryChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="countryChart"></canvas>
             </article>
             <article class="panel wide">
               <div class="panel-head">
-                <h2>专业/领域 Top 15</h2>
-                <button data-download-chart="majorChart" type="button">PNG</button>
+                <h2>专业/领域 Top 20</h2>
+                <div class="chart-actions">
+                  <select data-chart-type="majorChart" aria-label="切换专业领域图表类型">
+                    <option value="barY">横条图</option>
+                    <option value="bar">柱状图</option>
+                    <option value="line">折线图</option>
+                    <option value="doughnut">环形图</option>
+                    <option value="pie">饼图</option>
+                  </select>
+                  <button data-download-chart="majorChart" type="button">PNG</button>
+                </div>
               </div>
               <canvas id="majorChart"></canvas>
             </article>
-            <article class="panel wide">
-              <div class="panel-head">
-                <h2>语种-国家 Top 15</h2>
-                <button data-download-chart="languageChart" type="button">PNG</button>
-              </div>
-              <canvas id="languageChart"></canvas>
-            </article>
+          </section>
+
+          <section class="table-panel hidden" id="rawMatchPanel">
+            <div class="panel-head">
+              <h2>原表匹配记录</h2>
+              <span class="panel-note" id="rawMatchNote"></span>
+            </div>
+            <div class="table-wrap raw-table-wrap">
+              <table id="rawMatchTable"></table>
+            </div>
           </section>
 
           <section class="table-panel">
@@ -143,10 +232,10 @@
               <div class="inline-actions">
                 <select id="summarySelect">
                   <option value="countries">国家/地区</option>
-                  <option value="projectTypes">项目类型</option>
+                  <option value="businessLines">Business Line</option>
                   <option value="domains">领域</option>
                   <option value="majors">专业</option>
-                  <option value="languages">语种-国家</option>
+                  <option value="experience">工作经验年限</option>
                   <option value="details">人才明细</option>
                 </select>
                 <button id="copyTable" type="button">复制</button>
@@ -169,6 +258,6 @@
       </article>
     </template>
 
-    <script src="./app.js?v=20260617-rich-copy-labels"></script>
+    <script src="./app.js?v=20260618-dashboard-revisions"></script>
   </body>
 </html>
