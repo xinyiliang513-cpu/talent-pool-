@@ -1035,7 +1035,9 @@ function normalizeDegree(value) {
   const text = clean(value);
   const lower = text.toLowerCase();
   if (!text) return "";
+  if (isPlaceholderCategory(text)) return "其他";
   if (text.includes("未填写")) return "未填写";
+  if (/^(n\/?a|none|null|unknown|not applicable)$/i.test(text)) return "其他";
   if (lower.includes("phd") || lower.includes("doctor") || text.includes("博士")) return "博士";
   if (lower.includes("master") || text.includes("硕士") || text.includes("研究生")) return "硕士";
   if (lower.includes("bachelor") || text.includes("本科") || text.includes("学士")) return "本科";
@@ -1046,6 +1048,13 @@ function normalizeDegree(value) {
   if (lower.includes("undergraduate")) return "本科";
   if (lower.includes("postgraduate")) return "硕士及以上";
   return toChineseDegreeLabel(text);
+}
+
+function isPlaceholderCategory(value) {
+  const text = clean(value);
+  if (!text) return false;
+  const stripped = text.replace(/[\s\-_/\\|.,，。;；:：()[\]{}]+/g, "");
+  return stripped.length === 0;
 }
 
 function hourBucketFromText(value) {
