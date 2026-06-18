@@ -95,8 +95,11 @@ const chartLabelsPlugin = {
       const label = formatMetricLabel(value, total);
       if (chart.config.type === "line") {
         const point = element.tooltipPosition();
+        const width = ctx.measureText(label).width;
+        const labelX = clamp(point.x, chart.chartArea.left + width / 2 + 4, chart.chartArea.right - width / 2 - 4);
+        const labelY = Math.max(chart.chartArea.top + 12, point.y - 14);
         ctx.textAlign = "center";
-        ctx.fillText(label, point.x, point.y - 12);
+        ctx.fillText(label, labelX, labelY);
         return;
       }
       const horizontal = chart.options.indexAxis === "y";
@@ -575,7 +578,7 @@ function renderLine(canvasId, rows, label = "人数") {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 24, right: 14, bottom: 8, left: 14 } },
+      layout: { padding: { top: 30, right: 44, bottom: 8, left: 26 } },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (context) => formatMetricLabel(Number(context.raw) || 0, rows.reduce((sum, row) => sum + row.count, 0)) } },
@@ -592,6 +595,10 @@ function renderLine(canvasId, rows, label = "人数") {
 function renderChart(canvasId, config) {
   if (state.charts[canvasId]) state.charts[canvasId].destroy();
   state.charts[canvasId] = new Chart(el(canvasId), config);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function baseChartOptions(extra = {}) {
@@ -967,13 +974,17 @@ function timelineCounts(people) {
   const monthDates = [];
   people.forEach((person) => {
     const date = parseDate(person.completedAt);
-    const key = date ? monthKey(date) : "未填写";
+    if (!date) return;
+    const key = monthKey(date);
     if (date) monthDates.push(new Date(date.getFullYear(), date.getMonth(), 1));
     counts.set(key, (counts.get(key) || 0) + 1);
   });
   if (monthDates.length) {
     const start = new Date(Math.min(...monthDates.map((date) => date.getTime())));
-    const end = new Date(Math.max(...monthDates.map((date) => date.getTime())));
+    const latestDataMonth = new Date(Math.max(...monthDates.map((date) => date.getTime())));
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = currentMonth > latestDataMonth ? currentMonth : latestDataMonth;
     for (const cursor = new Date(start); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
       const key = monthKey(cursor);
       if (!counts.has(key)) counts.set(key, 0);
