@@ -846,7 +846,7 @@ function buildReportSections(people, projectRows) {
       rows: enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), total),
     },
     {
-      title: "Business Line Top 12",
+      title: "Business Line",
       chartId: "businessLineChart",
       rows: enrichSummary(topCounts(countProjectValues(projectRows, "Business Line"), 12), total),
     },
