@@ -541,7 +541,7 @@ function renderCharts(people, projectRows) {
   renderFlexibleChart("businessLineChart", OCCURRENCES_LABEL, topCounts(countProjectValues(projectRows, "Business Line"), 12));
   renderFlexibleChart("degreeChart", PEOPLE_LABEL, countBy(people, (person) => normalizeDegree(person.degree)));
   renderFlexibleChart("countryChart", PEOPLE_LABEL, topCounts(countBy(people, (person) => person.country || MISSING_LABEL), 15));
-  renderFlexibleChart("majorChart", OCCURRENCES_LABEL, topCounts(countMajorOccurrences(people), 20, { includeOther: false }));
+  renderFlexibleChart("majorChart", OCCURRENCES_LABEL, topCounts(countMajorOccurrences(people), 20));
 }
 
 function renderFlexibleChart(canvasId, label, rows, chartOptions = {}) {
@@ -863,7 +863,7 @@ function buildHtmlReport() {
 function buildReportSections(people, projectRows) {
   const total = people.length;
   const businessLineCounts = topCounts(countProjectValues(projectRows, "Business Line"), 12);
-  const majorCounts = topCounts(countMajorOccurrences(people), 20, { includeOther: false });
+  const majorCounts = topCounts(countMajorOccurrences(people), 20);
   return [
     {
       title: "Working Hours",
@@ -1006,7 +1006,31 @@ function firstLevelMajorName(value) {
     .replace(/\b\d{4}\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  return normalizeAnalyticCategory(label);
+  return standardMajorCategory(label);
+}
+
+function standardMajorCategory(value) {
+  const text = clean(value);
+  if (!text || /[\u3400-\u9fff\uf900-\ufaff]/.test(text) || isPlaceholderCategory(text)) return OTHER_LABEL;
+  const key = categoryKey(text);
+  const standardMajors = {
+    philosophy: "Philosophy",
+    economics: "Economics",
+    law: "Law",
+    education: "Education",
+    literature: "Literature",
+    history: "History",
+    science: "Science",
+    engineering: "Engineering",
+    agriculture: "Agriculture",
+    medicine: "Medicine",
+    management: "Management",
+    arts: "Arts",
+  };
+  if (standardMajors[key]) return standardMajors[key];
+  const firstWord = text.split(/\s+/).find(Boolean);
+  const firstWordMajor = standardMajors[categoryKey(firstWord)];
+  return firstWordMajor || OTHER_LABEL;
 }
 
 function countProjectValues(projectRows, field) {

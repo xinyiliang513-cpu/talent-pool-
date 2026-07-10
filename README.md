@@ -46,7 +46,7 @@
 - 专业统计优先使用 V 列 `Major/Specialty (学科专业)`。
 - Business Line 统计优先使用 AN、AZ、BL 三列，对应三个项目块的 `Business Line`。
 - Major 和 Business Line 按每次有效出现计数；同一人员可在同一统计中贡献多次。
-- Major 图表和汇总仅显示 V 列路径的第一级英文学科名称，并移除四位学科分类代码。
+- Major 图表和汇总仅显示标准专业门类；V 列路径优先取第一级，无法识别为标准门类、含中文残留或学历描述的值统一归入 `Other`。
 
 ## 依赖
 
