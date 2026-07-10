@@ -53,6 +53,12 @@ const projectColumnBases = [
   "Last Work Time",
 ];
 
+const fixedColumns = {
+  country: "P",
+  major: "V",
+  businessLine: ["AN", "AZ", "BL"],
+};
+
 const palette = [
   "#1769aa",
   "#15803d",
@@ -303,9 +309,12 @@ function syncReportActions() {
 
 function normalizeMatrix(matrix) {
   const headerIndex = detectHeaderRow(matrix);
-  const headers = (matrix[headerIndex] || []).map((value, index) => {
+  const seenHeaders = new Map();
+  const headerLine = matrix[headerIndex] || [];
+  const headers = Array.from({ length: headerLine.length }, (_, index) => {
+    const value = headerLine[index];
     const label = clean(value);
-    return label || `Column ${index + 1}`;
+    return uniqueHeader(label || `Column ${index + 1}`, seenHeaders);
   });
   const rows = matrix.slice(headerIndex + 1).map((line) => {
     const row = {};
@@ -315,6 +324,12 @@ function normalizeMatrix(matrix) {
     return row;
   }).filter((row) => Object.values(row).some((value) => clean(value)));
   return { headers, rows };
+}
+
+function uniqueHeader(label, seenHeaders) {
+  const count = seenHeaders.get(label) || 0;
+  seenHeaders.set(label, count + 1);
+  return count ? `${label}.${count}` : label;
 }
 
 function detectHeaderRow(matrix) {
@@ -348,15 +363,16 @@ function dedupePeople(rows, headers) {
 
 function buildPerson(row, headers, key) {
   const get = (field) => row[findColumn(headers, columnAliases[field])] || "";
+  const getFixed = (letter) => row[columnFromLetter(headers, letter)] || "";
   const person = {
     key,
     email: get("email"),
     name: get("name"),
-    country: get("country"),
+    country: getFixed(fixedColumns.country) || get("country"),
     city: get("city"),
     pm: get("pm"),
     degree: get("degree"),
-    major: get("major"),
+    major: getFixed(fixedColumns.major) || get("major"),
     domain: get("domain"),
     english: get("english"),
     hours: get("hours"),
@@ -382,10 +398,24 @@ function mergeProjectExperience(person, row, headers) {
       const column = headers.find((header) => header === `${base}${suffix}`);
       if (column) project[base] = row[column] || "";
     });
+    const fixedBusinessLine = row[columnFromLetter(headers, fixedColumns.businessLine[group])] || "";
+    if (fixedBusinessLine) project["Business Line"] = fixedBusinessLine;
     if (Object.values(project).some((value) => clean(value))) {
       person.projects.push(project);
     }
   }
+}
+
+function columnFromLetter(headers, letter) {
+  const index = columnLetterToIndex(letter);
+  return headers[index] || "";
+}
+
+function columnLetterToIndex(letter) {
+  return clean(letter)
+    .toUpperCase()
+    .split("")
+    .reduce((index, char) => index * 26 + char.charCodeAt(0) - 64, 0) - 1;
 }
 
 function findColumn(headers, aliases) {
@@ -473,7 +503,7 @@ function renderKpis(people, allPeople, projectRows) {
     ["Unique People", total.toLocaleString(), `Counted by Contact Email, ${percent(total, allPeople.length)} of total pool`],
     ["With Project Experience", projectPeople.toLocaleString(), `${percent(projectPeople, total)} of current talent`],
     ["Avg. Project Records", avgProjects.toFixed(1), "Merged Project No.1-3"],
-    ["Country/Region Coverage", countryCount.toLocaleString(), "Based on Resident Country/Region"],
+    ["Country/Region Coverage", countryCount.toLocaleString(), "Based on column P / Resident Country/Region"],
     ["Strong English", highEnglish.toLocaleString(), `${percent(highEnglish, total)} of current talent`],
   ];
 
