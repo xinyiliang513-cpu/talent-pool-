@@ -907,7 +907,7 @@ function buildReportSections(people, projectRows) {
       rows: enrichSummary(topCounts(countBy(people, (person) => person.country || MISSING_LABEL), 15), total),
     },
     {
-      title: "Major/Domain Top 20",
+      title: "Major Top 20",
       chartId: "majorChart",
       countLabel: OCCURRENCES_LABEL,
       rows: enrichSummary(majorCounts, sumCounts(majorCounts)),
@@ -984,11 +984,10 @@ function countMajorOccurrences(people) {
   people.forEach((person) => {
     const values = person.majorValues?.length
       ? person.majorValues
-      : [person.major || person.domain || MISSING_LABEL];
+      : [person.major || MISSING_LABEL];
     values.forEach((value) => {
       const tokens = splitMultiValue(value)
-        .map(normalizeAnalyticCategory)
-        .map(englishOnlyLabel)
+        .map(firstLevelMajorName)
         .filter(Boolean);
       (tokens.length ? tokens : [MISSING_LABEL]).forEach((token) => {
         counts.set(token, (counts.get(token) || 0) + 1);
@@ -996,6 +995,18 @@ function countMajorOccurrences(people) {
     });
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
+}
+
+function firstLevelMajorName(value) {
+  const text = clean(value);
+  if (!text) return "";
+  if (isPlaceholderCategory(text)) return OTHER_LABEL;
+  const firstLevel = text.split(/\s*\/\s*/).map(clean).find(Boolean) || text;
+  const label = englishOnlyLabel(firstLevel)
+    .replace(/\b\d{4}\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalizeAnalyticCategory(label);
 }
 
 function countProjectValues(projectRows, field) {
