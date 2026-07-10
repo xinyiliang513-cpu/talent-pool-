@@ -78,6 +78,7 @@ const MISSING_LABEL = "Missing";
 const OTHER_LABEL = "Other";
 const PEOPLE_LABEL = "People";
 const SUBMISSIONS_LABEL = "Submissions";
+const OCCURRENCES_LABEL = "Occurrences";
 
 const chartLabelsPlugin = {
   id: "chartLabels",
@@ -319,7 +320,9 @@ function normalizeMatrix(matrix) {
   const rows = matrix.slice(headerIndex + 1).map((line) => {
     const row = {};
     headers.forEach((header, index) => {
-      row[header] = normalizeCell(line[index]);
+      row[header] = index === columnLetterToIndex(fixedColumns.major)
+        ? normalizeMultiValueCell(line[index])
+        : normalizeCell(line[index]);
     });
     return row;
   }).filter((row) => Object.values(row).some((value) => clean(value)));
@@ -364,6 +367,7 @@ function dedupePeople(rows, headers) {
 function buildPerson(row, headers, key) {
   const get = (field) => row[findColumn(headers, columnAliases[field])] || "";
   const getFixed = (letter) => row[columnFromLetter(headers, letter)] || "";
+  const major = getFixed(fixedColumns.major) || get("major");
   const person = {
     key,
     email: get("email"),
@@ -372,7 +376,8 @@ function buildPerson(row, headers, key) {
     city: get("city"),
     pm: get("pm"),
     degree: get("degree"),
-    major: getFixed(fixedColumns.major) || get("major"),
+    major,
+    majorValues: [],
     domain: get("domain"),
     english: get("english"),
     hours: get("hours"),
@@ -391,6 +396,10 @@ function buildPerson(row, headers, key) {
 
 function mergeProjectExperience(person, row, headers) {
   if (!person.sourceRows.includes(row)) person.sourceRows.push(row);
+  const majorValue = row[columnFromLetter(headers, fixedColumns.major)]
+    || row[findColumn(headers, columnAliases.major)]
+    || "";
+  if (clean(majorValue)) person.majorValues.push(majorValue);
   for (let group = 0; group < 3; group += 1) {
     const suffix = group === 0 ? "" : `.${group}`;
     const project = {};
@@ -529,10 +538,10 @@ function renderCharts(people, projectRows) {
   renderFlexibleChart("experienceChart", PEOPLE_LABEL, bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), {
     compactBars: true,
   });
-  renderFlexibleChart("businessLineChart", PEOPLE_LABEL, topCounts(countProjectValues(projectRows, "Business Line"), 12));
+  renderFlexibleChart("businessLineChart", OCCURRENCES_LABEL, topCounts(countProjectValues(projectRows, "Business Line"), 12));
   renderFlexibleChart("degreeChart", PEOPLE_LABEL, countBy(people, (person) => normalizeDegree(person.degree)));
   renderFlexibleChart("countryChart", PEOPLE_LABEL, topCounts(countBy(people, (person) => person.country || MISSING_LABEL), 15));
-  renderFlexibleChart("majorChart", PEOPLE_LABEL, topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }));
+  renderFlexibleChart("majorChart", OCCURRENCES_LABEL, topCounts(countMajorOccurrences(people), 20, { includeOther: false }));
 }
 
 function renderFlexibleChart(canvasId, label, rows, chartOptions = {}) {
@@ -656,9 +665,11 @@ function baseChartOptions(extra = {}) {
 
 function buildSummaries(people, projectRows) {
   const countries = enrichSummary(countBy(people, (person) => person.country || MISSING_LABEL), people.length);
-  const businessLines = enrichSummary(countProjectValues(projectRows, "Business Line"), people.length);
+  const businessLineCounts = countProjectValues(projectRows, "Business Line");
+  const businessLines = enrichSummary(businessLineCounts, sumCounts(businessLineCounts));
   const domains = enrichSummary(countTokenValues(people, (person) => person.domain), people.length);
-  const majors = enrichSummary(countTokenValues(people, (person) => person.major || person.domain), people.length);
+  const majorCounts = countMajorOccurrences(people);
+  const majors = enrichSummary(majorCounts, sumCounts(majorCounts));
   const experience = enrichSummary(bucketCounts(people, (person) => person.yearsExperience, experienceBucketFromText, experienceBucketOrder()), people.length);
   const details = people.map((person) => ({
     name: person.name || MISSING_LABEL,
@@ -679,9 +690,10 @@ function renderSummaryTable() {
   const table = el("summaryTable");
   const rows = state.summaries[state.currentSummary] || [];
   const isDetails = state.currentSummary === "details";
+  const countLabel = ["businessLines", "majors"].includes(state.currentSummary) ? OCCURRENCES_LABEL : PEOPLE_LABEL;
   const headers = isDetails
     ? ["Name", "Email", "Country/Region", "English Level", "Education", "Major", "Working Hours", "Years of Work Experience", "Project Count", "PM"]
-    : ["Category", "People", "Share"];
+    : ["Category", countLabel, "Share"];
 
   table.innerHTML = "";
   const thead = document.createElement("thead");
@@ -735,9 +747,10 @@ function downloadCurrentCsv() {
 function currentSummaryCsv() {
   const rows = state.summaries[state.currentSummary] || [];
   const isDetails = state.currentSummary === "details";
+  const countLabel = ["businessLines", "majors"].includes(state.currentSummary) ? OCCURRENCES_LABEL : PEOPLE_LABEL;
   const headers = isDetails
     ? ["Name", "Email", "Country", "English Level", "Degree", "Major", "Working Hours", "Years of Work Experience", "Project Count", "PM"]
-    : ["Category", "People", "Share"];
+    : ["Category", countLabel, "Share"];
   const lines = [headers, ...rows.map((row) => isDetails
     ? [row.name, row.email, row.country, row.english, row.degree, row.major, row.hours, row.yearsExperience, row.projectCount, row.pm]
     : [row.name, row.count, row.share])];
@@ -790,7 +803,7 @@ function buildMarkdownReport() {
     "",
     ...sections.flatMap((section) => [
       `## ${section.title}`,
-      markdownTable(section.rows),
+      markdownTable(section.rows, section.countLabel),
       "",
     ]),
   ];
@@ -840,7 +853,7 @@ function buildHtmlReport() {
     ${sections.map((section) => `<section class="chart-block">
       <h2>${escapeHtml(section.title)}</h2>
       ${chartImageHtml(section.chartId)}
-      ${htmlTable(section.rows)}
+      ${htmlTable(section.rows, section.countLabel)}
     </section>`).join("")}
   </main>
 </body>
@@ -849,6 +862,8 @@ function buildHtmlReport() {
 
 function buildReportSections(people, projectRows) {
   const total = people.length;
+  const businessLineCounts = topCounts(countProjectValues(projectRows, "Business Line"), 12);
+  const majorCounts = topCounts(countMajorOccurrences(people), 20, { includeOther: false });
   return [
     {
       title: "Working Hours",
@@ -878,7 +893,8 @@ function buildReportSections(people, projectRows) {
     {
       title: "Business Line",
       chartId: "businessLineChart",
-      rows: enrichSummary(topCounts(countProjectValues(projectRows, "Business Line"), 12), total),
+      countLabel: OCCURRENCES_LABEL,
+      rows: enrichSummary(businessLineCounts, sumCounts(businessLineCounts)),
     },
     {
       title: "Education",
@@ -893,7 +909,8 @@ function buildReportSections(people, projectRows) {
     {
       title: "Major/Domain Top 20",
       chartId: "majorChart",
-      rows: enrichSummary(topCounts(countTokenValues(people, (person) => person.major || person.domain), 20, { includeOther: false }), total),
+      countLabel: OCCURRENCES_LABEL,
+      rows: enrichSummary(majorCounts, sumCounts(majorCounts)),
     },
   ];
 }
@@ -904,13 +921,13 @@ function chartImageHtml(chartId) {
   return `<img src="${chart.toBase64Image("image/png", 1)}" alt="${escapeHtml(chartId)} chart" />`;
 }
 
-function markdownTable(rows) {
+function markdownTable(rows, countLabel = PEOPLE_LABEL) {
   const tableRows = rows.map((row) => `| ${row.name} | ${row.count} | ${row.share} |`);
-  return ["| Category | People | Share |", "| --- | ---: | ---: |", ...tableRows].join("\n");
+  return [`| Category | ${countLabel} | Share |`, "| --- | ---: | ---: |", ...tableRows].join("\n");
 }
 
-function htmlTable(rows) {
-  return `<table><thead><tr><th>Category</th><th>People</th><th>Share</th></tr></thead><tbody>${rows.map((row) =>
+function htmlTable(rows, countLabel = PEOPLE_LABEL) {
+  return `<table><thead><tr><th>Category</th><th>${escapeHtml(countLabel)}</th><th>Share</th></tr></thead><tbody>${rows.map((row) =>
     `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.count)}</td><td>${escapeHtml(row.share)}</td></tr>`,
   ).join("")}</tbody></table>`;
 }
@@ -962,20 +979,34 @@ function countTokenValues(items, getValue) {
   return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
 }
 
-function countProjectValues(projectRows, field) {
+function countMajorOccurrences(people) {
   const counts = new Map();
-  projectRows.forEach(({ person, project }) => {
-    const tokens = splitMultiValue(project[field]).map(normalizeAnalyticCategory).filter(Boolean);
-    tokens.forEach((token) => {
-      const key = `${token}::${person.key}`;
-      counts.set(key, { name: token, person: person.key });
+  people.forEach((person) => {
+    const values = person.majorValues?.length
+      ? person.majorValues
+      : [person.major || person.domain || MISSING_LABEL];
+    values.forEach((value) => {
+      const tokens = splitMultiValue(value)
+        .map(normalizeAnalyticCategory)
+        .map(englishOnlyLabel)
+        .filter(Boolean);
+      (tokens.length ? tokens : [MISSING_LABEL]).forEach((token) => {
+        counts.set(token, (counts.get(token) || 0) + 1);
+      });
     });
   });
-  const peopleByValue = new Map();
-  counts.forEach(({ name }) => {
-    peopleByValue.set(name, (peopleByValue.get(name) || 0) + 1);
+  return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
+}
+
+function countProjectValues(projectRows, field) {
+  const counts = new Map();
+  projectRows.forEach(({ project }) => {
+    const tokens = splitMultiValue(project[field]).map(normalizeAnalyticCategory).filter(Boolean);
+    tokens.forEach((token) => {
+      counts.set(token, (counts.get(token) || 0) + 1);
+    });
   });
-  return Array.from(peopleByValue, ([name, count]) => ({ name, count })).sort(sortCountThenName);
+  return Array.from(counts, ([name, count]) => ({ name, count })).sort(sortCountThenName);
 }
 
 function bucketCounts(items, getValue, getBucket, order = [MISSING_LABEL, "0-4h", "4-8h", "8h+"]) {
@@ -1042,10 +1073,18 @@ function enrichSummary(rows, total) {
 
 function topCounts(rows, limit, options = {}) {
   const includeOther = options.includeOther !== false;
-  const top = rows.slice(0, limit);
+  const top = rows.slice(0, limit).map((row) => ({ ...row }));
   const rest = rows.slice(limit).reduce((sum, row) => sum + row.count, 0);
-  if (includeOther && rest > 0) top.push({ name: OTHER_LABEL, count: rest });
+  if (includeOther && rest > 0) {
+    const existingOther = top.find((row) => row.name === OTHER_LABEL);
+    if (existingOther) existingOther.count += rest;
+    else top.push({ name: OTHER_LABEL, count: rest });
+  }
   return top;
+}
+
+function sumCounts(rows) {
+  return rows.reduce((sum, row) => sum + row.count, 0);
 }
 
 function sortCountThenName(a, b) {
@@ -1053,9 +1092,9 @@ function sortCountThenName(a, b) {
 }
 
 function splitMultiValue(value) {
-  return clean(value)
-    .split(/[,，;；|、\n]+/g)
-    .map((item) => item.trim())
+  return String(value ?? "")
+    .split(/[,，;；|、\r\n]+/g)
+    .map((item) => clean(item))
     .filter(Boolean)
     .map((item) => item.replace(/\s+/g, " "));
 }
@@ -1097,6 +1136,15 @@ function normalizeAnalyticCategory(value) {
   if (/^li.*languageintelligence$/.test(key)) return "LI (Language Intelligence)";
   if (known[key]) return known[key];
   return smartTitleCase(text);
+}
+
+function englishOnlyLabel(value) {
+  const english = String(value ?? "")
+    .replace(/[\u3400-\u9fff\uf900-\ufaff]/g, " ")
+    .replace(/[（）【】《》]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return english || clean(value);
 }
 
 function categoryKey(value) {
@@ -1223,6 +1271,16 @@ function uniqueSorted(values) {
 function normalizeCell(value) {
   if (value instanceof Date) return value.toLocaleString();
   return clean(value);
+}
+
+function normalizeMultiValueCell(value) {
+  if (value instanceof Date) return value.toLocaleString();
+  return String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((item) => clean(item))
+    .filter(Boolean)
+    .join("\n");
 }
 
 function clean(value) {

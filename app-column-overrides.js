@@ -16,7 +16,9 @@ function normalizeMatrix(matrix) {
   const rows = matrix.slice(headerIndex + 1).map((line) => {
     const row = {};
     headers.forEach((header, index) => {
-      row[header] = normalizeCell(line[index]);
+      row[header] = index === columnLetterToIndex(fixedColumnLetters.major)
+        ? normalizeMultiValueCell(line[index])
+        : normalizeCell(line[index]);
     });
     return row;
   }).filter((row) => Object.values(row).some((value) => clean(value)));
@@ -32,6 +34,7 @@ function uniqueHeader(label, seenHeaders) {
 function buildPerson(row, headers, key) {
   const get = (field) => row[findColumn(headers, columnAliases[field])] || "";
   const getFixed = (letter) => row[columnFromLetter(headers, letter)] || "";
+  const major = getFixed(fixedColumnLetters.major) || get("major");
   const person = {
     key,
     email: get("email"),
@@ -40,7 +43,8 @@ function buildPerson(row, headers, key) {
     city: get("city"),
     pm: get("pm"),
     degree: get("degree"),
-    major: getFixed(fixedColumnLetters.major) || get("major"),
+    major,
+    majorValues: [],
     domain: get("domain"),
     english: get("english"),
     hours: get("hours"),
@@ -59,6 +63,10 @@ function buildPerson(row, headers, key) {
 
 function mergeProjectExperience(person, row, headers) {
   if (!person.sourceRows.includes(row)) person.sourceRows.push(row);
+  const majorValue = row[columnFromLetter(headers, fixedColumnLetters.major)]
+    || row[findColumn(headers, columnAliases.major)]
+    || "";
+  if (clean(majorValue)) person.majorValues.push(majorValue);
   for (let group = 0; group < 3; group += 1) {
     const suffix = group === 0 ? "" : `.${group}`;
     const project = {};
